@@ -1,0 +1,19 @@
+# environment variables
+.env*.local
+
+# node modules
+node_modules/
+
+# vscode
+.vscode/*
+!.vscode/settings.json.default
+!.vscode/launch.json.default
+!.vscode/extensions.json.default
+
+# data generated
+/build
+/dist
+/.svelte-kit
+/package
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*

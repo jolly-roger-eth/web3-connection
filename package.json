@@ -1,0 +1,58 @@
+{
+	"name": "web3-connection",
+	"version": "0.0.1",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"svelte": "./dist/index.js"
+		}
+	},
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"peerDependencies": {
+		"svelte": "^3.54.0"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^2.0.0",
+		"@sveltejs/kit": "^1.14.0",
+		"@sveltejs/package": "^2.0.0",
+		"@tailwindcss/forms": "^0.5.2",
+		"@tailwindcss/typography": "^0.5.3",
+		"autoprefixer": "^10.4.14",
+		"daisyui": "^2.51.5",
+		"eip-1193": "workspace:*",
+		"postcss": "^8.4.14",
+		"postcss-load-config": "^4.0.1",
+		"prettier": "^2.8.7",
+		"prettier-plugin-svelte": "^2.10.0",
+		"publint": "^0.1.11",
+		"svelte": "^3.57.0",
+		"svelte-check": "^3.1.4",
+		"svelte-preprocess": "^5.0.3",
+		"tailwindcss": "^3.3.0",
+		"tslib": "^2.4.1",
+		"typescript": "^5.0.2",
+		"vite": "^4.2.1",
+		"web3w-walletconnect-loader": "^0.4.3"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build && npm run package",
+		"preview": "vite preview",
+		"package:dev": "svelte-kit sync && svelte-package --watch",
+		"package": "svelte-kit sync && svelte-package && publint",
+		"prepublishOnly": "npm run package",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "prettier --plugin-search-dir . --check .",
+		"format": "prettier --plugin-search-dir . --write .",
+		"svelte-check": "svelte-check"
+	},
+	"dependencies": {
+		"named-logs": "^0.2.2"
+	}
+}
