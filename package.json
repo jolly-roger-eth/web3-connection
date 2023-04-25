@@ -1,6 +1,6 @@
 {
 	"name": "web3-connection",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"type": "module",
 	"exports": {
 		".": {
@@ -24,7 +24,7 @@
 		"@tailwindcss/typography": "^0.5.3",
 		"autoprefixer": "^10.4.14",
 		"daisyui": "^2.51.5",
-		"eip-1193": "workspace:*",
+		"eip-1193": "^0.2.5",
 		"postcss": "^8.4.14",
 		"postcss-load-config": "^4.0.1",
 		"prettier": "^2.8.7",
