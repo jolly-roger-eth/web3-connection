@@ -196,7 +196,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	// ----------------------------------------------------------------------------------------------
 	// private state
 	// ----------------------------------------------------------------------------------------------
-	let listening: boolean = false;
+	let listening: boolean = true;
 	let currentModule: Web3WModule | undefined;
 	// ----------------------------------------------------------------------------------------------
 
@@ -1357,3 +1357,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		execute,
 	};
 }
+
+// if (import.meta.hot) {
+// 	import.meta.hot.accept((newModule) => {
+// 		if (newModule) {
+// 			console.log('web3-connection/connection updated');
+// 		}
+// 	});
+// }
