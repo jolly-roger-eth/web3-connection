@@ -1289,7 +1289,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	}
 
 	async function autoStart() {
-		let timeout: number| undefined;
+		let timeout: number | undefined;
 		try {
 			timeout = setTimeout(() => {
 				// set({
