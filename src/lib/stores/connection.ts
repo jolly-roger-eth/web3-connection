@@ -13,7 +13,7 @@ import type { EIP1193ChainId, EIP1193Provider, EIP1193ProviderRpcError } from 'e
 import type { DefaultProvider } from '$lib/provider/rpc';
 import { createRPCProvider } from '$lib/provider/rpc';
 
-const logger = logs('1193-connection');
+const logger = logs('web3-connection');
 
 export type ConnectionRequirements =
 	| 'connection' // only connected to perform raw read-only calls, any network
@@ -21,7 +21,7 @@ export type ConnectionRequirements =
 	| 'connection+account' // connected to perform raw call, including write one, any network
 	| 'connection+network+account'; // connected to perform contract read and write call to supported network
 
-// TODO ABI type
+// TODO ABI type (use abitype ?)
 type GenericAbi = readonly any[];
 export type GenericContractsInfos = {
 	readonly [name: string]: { readonly address: `0x${string}`; readonly abi: GenericAbi };
@@ -75,10 +75,6 @@ export type DisconnectedState = BaseConnectionState & {
 
 export type ConnectionState = ConnectedState | DisconnectedState;
 
-// TODO Network state: 'Idle' | 'Unloaded` | 'Loaded
-//  Account state: 'Idle' | 'Unloaded` | 'Loaded
-
-// TODO types: <ContractTypes extends ContractsInfos = ContractsInfos>
 export type NetworkState<NetworkConfig extends GenericNetworkConfig> =
 	| DisconectedNetworkState
 	| DisconectedBecauseNotSupportedNetworkState
@@ -178,10 +174,6 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 	};
 };
 
-// TODO overload defaultRPC => defaultProvider in state
-// export declare function init<NetworkConfig extends GenericNetworkConfig>(
-// 	config: ConnectionConfig<NetworkConfig> & { defaultRPC: { chainId: string; url: string } }
-// ):
 export function init<NetworkConfig extends GenericNetworkConfig>(
 	config: ConnectionConfig<NetworkConfig>
 ) {
@@ -1297,7 +1289,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	}
 
 	async function autoStart() {
-		let timeout: NodeJS.Timeout | undefined;
+		let timeout: number| undefined;
 		try {
 			timeout = setTimeout(() => {
 				// set({
