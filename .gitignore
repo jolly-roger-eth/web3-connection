@@ -13,6 +13,7 @@ node_modules/
 # data generated
 /build
 /dist
+/dist-tmp
 /.svelte-kit
 /package
 vite.config.js.timestamp-*

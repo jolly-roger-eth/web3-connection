@@ -22,6 +22,7 @@
 		"@sveltejs/package": "^2.0.2",
 		"@tailwindcss/forms": "^0.5.3",
 		"@tailwindcss/typography": "^0.5.9",
+		"as-soon": "^0.0.4",
 		"autoprefixer": "^10.4.14",
 		"daisyui": "^2.51.6",
 		"eip-1193": "^0.2.5",
@@ -43,7 +44,9 @@
 	"scripts": {
 		"prepare": "set-defaults .vscode",
 		"dev": "vite dev",
-		"build": "vite build && npm run package",
+		"dev:build": "as-soon -w src/lib pnpm run dev:package",
+		"dev:package": "svelte-package -o dist-tmp && cp -R dist-tmp/* dist/",
+		"build": "pnpm run package",
 		"preview": "vite preview",
 		"package:dev": "svelte-kit sync && svelte-package --watch",
 		"package": "svelte-kit sync && svelte-package && publint",
