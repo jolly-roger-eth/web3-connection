@@ -1,24 +1,74 @@
-import type { EIP1193Provider, EIP1193Transaction, EIP1193Request } from 'eip-1193';
+import type { EIP1193Provider, EIP1193Request } from 'eip-1193';
 import { createBlockPoller, createSubscriptionHandler } from './subscriptions';
+import type { EIP1193TransactionData } from 'eip-1193';
 
 export type EIP1193TransactionRequestWithMetadata = {
 	readonly method: 'eth_sendTransaction';
-	params: [EIP1193Transaction, any];
+	params: [EIP1193TransactionData, any];
 };
 
-export type EIP1193TransactionWithMetadata = EIP1193Transaction & {
-	metadata?: any;
+export type Metadata = unknown; // TODO have some mandatory field like id ? or maybe at least be an object ?
+
+export type EIP1193TransactionWithMetadata = EIP1193TransactionData & {
+	metadata?: Metadata;
 };
 
-export type SignatureRequest = { from: string; message: unknown; metadata?: any };
+export type SignatureRequestWithMetadata = { from: string; message: unknown; metadata?: Metadata };
 
 export interface EIP1193Observers {
 	onTxRequested?: (tx: EIP1193TransactionWithMetadata) => void;
 	onTxCancelled?: (tx: EIP1193TransactionWithMetadata) => void;
 	onTxSent?: (tx: EIP1193TransactionWithMetadata, hash: string) => void;
-	onSignatureRequest?: (request: SignatureRequest) => void;
-	onSignatureCancelled?: (request: SignatureRequest) => void;
-	onSignatureResponse?: (request: SignatureRequest, signature: string) => void;
+	onSignatureRequest?: (request: SignatureRequestWithMetadata) => void;
+	onSignatureCancelled?: (request: SignatureRequestWithMetadata) => void;
+	onSignatureResponse?: (request: SignatureRequestWithMetadata, signature: string) => void;
+}
+
+export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Observers {
+	return {
+		onTxRequested: (tx: EIP1193TransactionWithMetadata) => {
+			for (const observer of oberserversList) {
+				if (observer.onTxRequested) {
+					observer.onTxRequested(tx);
+				}
+			}
+		},
+		onTxCancelled: (tx: EIP1193TransactionWithMetadata) => {
+			for (const observer of oberserversList) {
+				if (observer.onTxCancelled) {
+					observer.onTxCancelled(tx);
+				}
+			}
+		},
+		onTxSent: (tx: EIP1193TransactionWithMetadata, hash: string) => {
+			for (const observer of oberserversList) {
+				if (observer.onTxSent) {
+					observer.onTxSent(tx, hash);
+				}
+			}
+		},
+		onSignatureRequest: (request: SignatureRequestWithMetadata) => {
+			for (const observer of oberserversList) {
+				if (observer.onSignatureRequest) {
+					observer.onSignatureRequest(request);
+				}
+			}
+		},
+		onSignatureCancelled: (request: SignatureRequestWithMetadata) => {
+			for (const observer of oberserversList) {
+				if (observer.onSignatureCancelled) {
+					observer.onSignatureCancelled(request);
+				}
+			}
+		},
+		onSignatureResponse: (request: SignatureRequestWithMetadata, signature: string) => {
+			for (const observer of oberserversList) {
+				if (observer.onSignatureResponse) {
+					observer.onSignatureResponse(request, signature);
+				}
+			}
+		},
+	};
 }
 
 export type ObservableProvider = EIP1193Provider & {
@@ -47,7 +97,7 @@ export function wrapProvider(
 	async function handleSignedMessage(
 		args: EIP1193Request,
 		from: string,
-		message: unknown,
+		message: unknown, // TODO type ?
 		metadata?: any
 	) {
 		if (!metadata) {
@@ -83,7 +133,7 @@ export function wrapProvider(
 		}
 	}
 
-	function getMetadata(metadataArg: unknown) {
+	function getMetadata(metadataArg: Metadata): Metadata {
 		let metadata = metadataArg;
 		if (!metadata) {
 			if (nextMetadata) {
@@ -95,6 +145,7 @@ export function wrapProvider(
 				`conflicting metadata, metadata was set via "setNextMetadata" but it was also provided as part of the request data`
 			);
 		}
+		return metadata;
 	}
 
 	function _request(args: EIP1193Request): Promise<unknown> {

@@ -1,22 +1,45 @@
-import type { EIP1193Observers } from '$lib/provider/wrap';
+/**
+ * This is pending user action
+ * This is only used in memory
+ * It receive all request going through the wallet provider and let the UI know that some tx/signatures are being requested
+ * Once a tx/sig is accepted or rejected it get removed from here
+ * On a page reload, the txs are not there anymore
+ * This is because the execution context is lost by then
+ * we could potentially offer to save these pending action and have a UI acknowledging their execution context loss
+ *  and warn the user that it should cancel them
+ *  Ideally wallets should provide an EIP that let use cancel these
+ */
+import type {
+	EIP1193Observers,
+	EIP1193TransactionWithMetadata,
+	SignatureRequestWithMetadata,
+} from '$lib/provider/wrap';
 import { createStore } from '$lib/utils/stores';
 
+export type PendingAction =
+	| { type: 'transaction'; item: EIP1193TransactionWithMetadata }
+	| { type: 'signature'; item: SignatureRequestWithMetadata };
+
 export type PendingActionsState = {
-	list: any[];
+	list: PendingAction[];
 };
 
-function remove<T>(arr: T[], func: (v: T) => void) {
-	const index = arr.findIndex(func);
+function removeItem(
+	arr: PendingAction[],
+	i: SignatureRequestWithMetadata | EIP1193TransactionWithMetadata
+) {
+	const index = arr.findIndex((v) => v.item === i);
 	if (index > -1) {
 		arr.splice(index, 1);
 	}
 }
 
-function removeItem<T>(arr: { item: T }[], i: T) {
-	const index = arr.findIndex((v) => v.item === i);
-	if (index > -1) {
-		arr.splice(index, 1);
-	}
+function addTx(arr: PendingAction[], i: EIP1193TransactionWithMetadata) {
+	arr.push({ type: 'transaction', item: i });
+}
+
+function addSig(arr: PendingAction[], i: SignatureRequestWithMetadata) {
+	arr.push({ type: 'signature', item: i });
 }
 
 export function createPendingActionsStore() {
@@ -26,7 +49,7 @@ export function createPendingActionsStore() {
 
 	const observers: EIP1193Observers = {
 		onTxRequested(tx) {
-			$state.list.push({ type: 'transaction', item: tx });
+			addTx($state.list, tx);
 			set({ list: $state.list });
 		},
 		onTxCancelled(tx) {
@@ -38,7 +61,7 @@ export function createPendingActionsStore() {
 			set({ list: $state.list });
 		},
 		onSignatureRequest(request) {
-			$state.list.push({ type: 'signature', item: request });
+			addSig($state.list, request);
 			set({ list: $state.list });
 		},
 		onSignatureCancelled(request) {

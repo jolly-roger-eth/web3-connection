@@ -4,7 +4,7 @@ import { createBuiltinStore } from './builtin';
 import { logs } from 'named-logs';
 import { wait } from '$lib/utils/time';
 import { formatChainId } from '$lib/utils/ethereum';
-import { wrapProvider } from '$lib/provider/wrap';
+import { multiObersvers, wrapProvider, type EIP1193Observers } from '$lib/provider/wrap';
 import { createPendingActionsStore } from './pending-actions';
 import { createManageablePromise, createManageablePromiseWithId } from '$lib/utils/promises';
 import { getContractInfos } from '$lib/utils/contracts';
@@ -172,6 +172,7 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 		) => Promise<void>;
 		unload: () => Promise<void>;
 	};
+	observers?: EIP1193Observers;
 };
 
 export function init<NetworkConfig extends GenericNetworkConfig>(
@@ -267,12 +268,17 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		executing: false,
 	});
 
-	const { observers, pendingActions } = createPendingActionsStore();
+	const { observers: observersForPendingActions, pendingActions } = createPendingActionsStore();
 	// ----------------------------------------------------------------------------------------------
 
 	// ----------------------------------------------------------------------------------------------
 	// function to create the provider
 	// ----------------------------------------------------------------------------------------------
+
+	const observers = config.observers
+		? multiObersvers([config.observers, observersForPendingActions])
+		: observersForPendingActions;
+
 	function createProvider(ethereum: EIP1193Provider): EIP1193Provider {
 		return wrapProvider(ethereum, observers);
 	}
