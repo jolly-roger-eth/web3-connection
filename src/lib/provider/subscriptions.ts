@@ -205,7 +205,7 @@ export function createBlockPoller(
 		}
 	}
 
-	let nextSync: NodeJS.Timeout | undefined;
+	let nextSync: number | undefined;
 	function syncNextTime() {
 		nextSync = setTimeout(sync, intervalInMs);
 	}

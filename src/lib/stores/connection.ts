@@ -4,14 +4,26 @@ import { createBuiltinStore } from './builtin';
 import { logs } from 'named-logs';
 import { wait } from '$lib/utils/time';
 import { formatChainId } from '$lib/utils/ethereum';
-import { multiObersvers, wrapProvider, type EIP1193Observers } from '$lib/provider/wrap';
+import {
+	multiObersvers,
+	wrapProvider,
+	type EIP1193Observers,
+	type WrappedProvider,
+} from '$lib/provider/wrap';
 import { createPendingActionsStore } from './pending-actions';
 import { createManageablePromise, createManageablePromiseWithId } from '$lib/utils/promises';
 import { getContractInfos } from '$lib/utils/contracts';
 import { fetchPreviousSelection, recordSelection } from './localStorage';
-import type { EIP1193ChainId, EIP1193Provider, EIP1193ProviderRpcError } from 'eip-1193';
+import type {
+	EIP1193ChainId,
+	EIP1193Message,
+	EIP1193Provider,
+	EIP1193ProviderRpcError,
+} from 'eip-1193';
 import type { DefaultProvider } from '$lib/provider/rpc';
 import { createRPCProvider } from '$lib/provider/rpc';
+import { initEmitter } from '$lib/external/callbacks';
+import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/types';
 
 const logger = logs('web3-connection');
 
@@ -274,14 +286,143 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	// ----------------------------------------------------------------------------------------------
 	// function to create the provider
 	// ----------------------------------------------------------------------------------------------
+	const emitter = initEmitter<number>();
+
+	function onNewBlock(func: (blockNumber: number) => void) {
+		return emitter.on(func);
+	}
+	function offNewBlock(func: (blockNumber: number) => void) {
+		return emitter.off(func);
+	}
+
+	let timeout: number | undefined;
+	let timer: number | undefined;
+	let currentSubscriptionId: `0x${string}` | undefined;
+	function handleNewHeads(
+		provider: EIP1193ProviderWithBlocknumberSubscription,
+		oldProvider?: EIP1193ProviderWithBlocknumberSubscription
+	) {
+		// if (timeout) {
+		// 	clearTimeout(timeout);
+		// }
+		// if (oldProvider && currentSubscriptionId) {
+		// 	oldProvider
+		// 		.request({ method: 'eth_unsubscribe', params: [currentSubscriptionId] })
+		// 		.catch((err) => {
+		// 			console.error(`failed to unsubscribe`);
+		// 		});
+		// }
+
+		// function resetNewHeadsTimeout() {
+		// 	clearTimeout(timeout);
+		// 	timeout = setTimeout(onSubscriptionFailure, 20000);
+		// }
+
+		const timerDelay = 3000; // TODO config
+
+		let timer_lastBlockNumber: number | undefined;
+		let timer_lastChainId: string | undefined;
+		let pending_request: Promise<`0x${string}`> | undefined;
+		async function onTimer() {
+			try {
+				if (!pending_request && $network.chainId) {
+					pending_request = provider.request({ method: 'eth_blockNumber' });
+					const blockNumberSTR = await pending_request;
+					pending_request = undefined;
+					const blockNumber = parseInt(blockNumberSTR.slice(2), 16);
+					if (
+						$network.chainId !== timer_lastChainId ||
+						!timer_lastBlockNumber ||
+						blockNumber > timer_lastBlockNumber
+					) {
+						timer_lastChainId = $network.chainId;
+						timer_lastBlockNumber = blockNumber;
+						emitter.emit(blockNumber);
+					}
+				}
+			} finally {
+				timer = setTimeout(onTimer, timerDelay);
+			}
+		}
+
+		async function onSubscriptionFailure() {
+			if (currentSubscriptionId) {
+				try {
+					await provider.request({ method: 'eth_unsubscribe', params: [currentSubscriptionId] });
+				} catch (err) {
+					console.error(`failed to unsubscribe`);
+				}
+				currentSubscriptionId = undefined;
+			}
+
+			if (!timer) {
+				onTimer();
+			}
+		}
+
+		// async function onNewHeads(message: EIP1193Message) {
+		// 	const data = message.data;
+		// 	if (
+		// 		message.type === 'eth_subscription' &&
+		// 		data &&
+		// 		typeof data === 'object' &&
+		// 		'subscription' in data
+		// 	) {
+		// 		try {
+		// 			const blockNumber = await provider.request({ method: 'eth_blockNumber' });
+		// 			emitter.emit(parseInt(blockNumber.slice(2), 16));
+		// 		} finally {
+		// 			if (data.subscription === currentSubscriptionId) {
+		// 				resetNewHeadsTimeout();
+		// 			}
+		// 		}
+		// 	}
+		// }
+
+		// function listenTo(subscriptionId: `0x${string}`) {
+		// 	currentSubscriptionId = subscriptionId;
+		// 	resetNewHeadsTimeout();
+		// }
+
+		// if ('on' in provider) {
+		// 	provider
+		// 		.request({ method: 'eth_subscribe', params: ['newHeads'] })
+		// 		.then((subscriptionId: string) => {
+		// 			provider.on('message', onNewHeads);
+		// 			listenTo(subscriptionId as `0x${string}`);
+		// 		})
+		// 		.catch((err) => {
+		// 			console.error(
+		// 				`Error making newHeads subscription: ${err.message}.
+		// 				 Code: ${err.code}. Data: ${err.data}
+		// 				 Falling back on timeout
+		// 				 `
+		// 			);
+		// 			onSubscriptionFailure();
+		// 		});
+		// } else {
+		// 	onSubscriptionFailure();
+		// }
+		onSubscriptionFailure();
+	}
 
 	const observers = config.observers
 		? multiObersvers([config.observers, observersForPendingActions])
 		: observersForPendingActions;
 
+	let single_provider: WrappedProvider | undefined;
 	function createProvider(ethereum: EIP1193Provider): EIP1193Provider {
-		return wrapProvider(ethereum, observers);
+		let old_provider: EIP1193ProviderWithBlocknumberSubscription | undefined;
+		if (!single_provider || '__web3_connection__' in ethereum) {
+			single_provider = wrapProvider(ethereum, observers);
+		} else {
+			old_provider = single_provider.underlyingProvider;
+			single_provider.setUnderlyingProvider(ethereum);
+		}
+		handleNewHeads(ethereum, old_provider);
+		return single_provider;
 	}
+
 	// ----------------------------------------------------------------------------------------------
 
 	// ----------------------------------------------------------------------------------------------
@@ -1343,6 +1484,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		network: {
 			...readableNetwork,
 			switchTo,
+			onNewBlock,
 		},
 		account: {
 			...readableAccount,

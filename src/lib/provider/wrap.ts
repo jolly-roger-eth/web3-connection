@@ -1,6 +1,7 @@
-import type { EIP1193Provider, EIP1193Request } from 'eip-1193';
+import type { EIP1193Block, EIP1193Provider, EIP1193Request } from 'eip-1193';
 import { createBlockPoller, createSubscriptionHandler } from './subscriptions';
 import type { EIP1193TransactionData } from 'eip-1193';
+import type { EIP1193ProviderWithBlocknumberSubscription } from './types';
 
 export type EIP1193TransactionRequestWithMetadata = {
 	readonly method: 'eth_sendTransaction';
@@ -10,10 +11,16 @@ export type EIP1193TransactionRequestWithMetadata = {
 export type Metadata = unknown; // TODO have some mandatory field like id ? or maybe at least be an object ?
 
 export type EIP1193TransactionWithMetadata = EIP1193TransactionData & {
+	timestamp: number;
 	metadata?: Metadata;
 };
 
-export type SignatureRequestWithMetadata = { from: string; message: unknown; metadata?: Metadata };
+export type SignatureRequestWithMetadata = {
+	from: string;
+	message: unknown;
+	timestamp: number;
+	metadata?: Metadata;
+};
 
 export interface EIP1193Observers {
 	onTxRequested?: (tx: EIP1193TransactionWithMetadata) => void;
@@ -71,28 +78,50 @@ export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Obse
 	};
 }
 
-export type ObservableProvider = EIP1193Provider & {
-	setNextMetadata(metadata: any): void;
-	__web3_connection_: true;
+export type ObservableProvider = EIP1193ProviderWithBlocknumberSubscription & {
 	setObservers(observers: EIP1193Observers): void;
 	unsetObservers(): void;
 };
 
+export type WrappedProvider = ObservableProvider & {
+	setNextMetadata(metadata: any): void;
+	__web3_connection_: true;
+	currentTime(): number;
+	underlyingProvider: EIP1193ProviderWithBlocknumberSubscription;
+	setUnderlyingProvider(ethereum: EIP1193ProviderWithBlocknumberSubscription): void;
+};
+
 export function wrapProvider(
-	ethereum: EIP1193Provider,
+	underlyingProvider: EIP1193Provider,
 	observers: EIP1193Observers
-): ObservableProvider {
+): WrappedProvider {
+	let _syncTime: number | undefined;
+
+	function currentTime() {
+		if (!_syncTime) {
+			throw new Error(
+				`The provider need to be synced with block.timestamp before being able to provide currentTime.`
+			);
+		}
+		return Math.floor((performance.now() + _syncTime) / 1000);
+	}
+
 	let currentObservers: EIP1193Observers | undefined = observers;
-	if ((ethereum as any).__web3_connection__) {
+	if ((underlyingProvider as any).__web3_connection__) {
 		// do not rewrap if already an 1193 Proxy, but set the new observers
-		(ethereum as any).setObservers(observers);
-		return ethereum as ObservableProvider;
+		(underlyingProvider as any).setObservers(observers);
+		return underlyingProvider as WrappedProvider;
+	}
+
+	let ethereum = underlyingProvider;
+	function setUnderlyingProvider(newUnderlyingProvider: EIP1193Provider) {
+		ethereum = newUnderlyingProvider;
 	}
 
 	let nextMetadata: any | undefined;
 	let _subscriptionSupported: boolean = false;
-	let subscriptionHandler: ReturnType<typeof createSubscriptionHandler>;
-	const poller = createBlockPoller(ethereum, 'newHeads', 4000);
+	// let subscriptionHandler: ReturnType<typeof createSubscriptionHandler>;
+	// const poller = createBlockPoller(ethereum, 'newHeads', 4000);
 
 	async function handleSignedMessage(
 		args: EIP1193Request,
@@ -111,7 +140,7 @@ export function wrapProvider(
 			);
 		}
 
-		let messageWithMetadata = { from, message, metadata };
+		let messageWithMetadata = { from, message, metadata, timestamp: currentTime() };
 
 		if (currentObservers?.onSignatureRequest) {
 			currentObservers?.onSignatureRequest(messageWithMetadata);
@@ -148,26 +177,26 @@ export function wrapProvider(
 		return metadata;
 	}
 
-	function _request(args: EIP1193Request): Promise<unknown> {
+	function _request<T>(args: EIP1193Request): Promise<T> {
 		if (ethereum.request) {
-			return ethereum.request(args);
+			return ethereum.request(args) as Promise<T>;
 		} else {
 			const ethereumSendAsync = ethereum as unknown as {
 				sendAsync: (
 					request: { method: string; params?: Array<any> },
 					callback: (error: any, response: any) => void
 				) => void;
-				enable?(): Promise<unknown>;
+				enable?(): Promise<T>;
 			};
 			const ethereumSend = ethereum as unknown as {
 				send: (
 					request: { method: string; params?: Array<any> },
 					callback: (error: any, response: any) => void
 				) => void;
-				enable?(): Promise<unknown>;
+				enable?(): Promise<T>;
 			};
 			if (ethereumSendAsync.sendAsync) {
-				return new Promise<unknown>((resolve, reject) => {
+				return new Promise<T>((resolve, reject) => {
 					if (args.method === 'eth_requestAccounts' && ethereumSendAsync.enable) {
 						ethereumSendAsync.enable().then(resolve);
 					} else {
@@ -185,7 +214,7 @@ export function wrapProvider(
 					}
 				});
 			} else if (ethereumSend.send) {
-				return new Promise<unknown>((resolve, reject) => {
+				return new Promise<T>((resolve, reject) => {
 					if (args.method === 'eth_requestAccounts' && ethereumSendAsync.enable) {
 						ethereumSendAsync.enable().then(resolve);
 					} else {
@@ -234,6 +263,25 @@ export function wrapProvider(
 	}
 
 	async function request(args: EIP1193Request) {
+		if (!_syncTime) {
+			const latestBlock = await _request<EIP1193Block>({
+				method: 'eth_getBlockByNumber',
+				params: ['latest', false],
+			});
+			const blockTimeInMs = parseInt(latestBlock.timestamp.slice(2), 16) * 1000;
+			const localTimestamp = Date.now();
+			const discrepancy = localTimestamp - blockTimeInMs;
+			if (Math.abs(discrepancy) > 3_600_000) {
+				throw new Error(
+					`${Math.floor(
+						discrepancy / 3_600_000
+					)} hours of discrepancy between local time and the node time. The client cannot know which one is more correct. Please ensure your node is synced and that your local clock is correct`
+				);
+			}
+			const performanceNow = performance.now();
+			_syncTime = blockTimeInMs - performanceNow;
+		}
+
 		switch (args.method) {
 			case 'eth_sendTransaction':
 				const tx = args.params[0];
@@ -241,7 +289,7 @@ export function wrapProvider(
 					(args as unknown as EIP1193TransactionRequestWithMetadata).params[1]
 				);
 
-				let txWithMetadata = { ...tx, metadata };
+				let txWithMetadata = { ...tx, metadata, timestamp: currentTime() };
 
 				if (currentObservers?.onTxRequested) {
 					currentObservers?.onTxRequested(txWithMetadata);
@@ -291,38 +339,38 @@ export function wrapProvider(
 					getMetadata((args as any).params[2])
 				);
 			case 'eth_subscribe':
-				if (subscriptionHandler) {
-					return subscriptionHandler.handleSubscriptionRequest(args);
-				} else if (_subscriptionSupported) {
-					return _request(args);
-				} else {
-					try {
-						// if (args.params[0] == 'newHeads' && (ethereum as any).isBraveWallet) {
-						// 	throw new Error('Brave Wallet do not support newHeads subscriptions');
-						// }
-						const result = await _request(args);
-						_subscriptionSupported = true;
-						return result;
-					} catch (err) {
-						console.log(`sucription not supported, falling back on a subscription handler`);
-						subscriptionHandler = createSubscriptionHandler(
-							['newHeads'],
-							(subscriptionHandler) => {
-								poller.start(subscriptionHandler.broadcastNewHeads);
-							},
-							() => {
-								poller.stop();
-							}
-						);
-						return subscriptionHandler.handleSubscriptionRequest(args);
-					}
-				}
+				// if (subscriptionHandler) {
+				// 	return subscriptionHandler.handleSubscriptionRequest(args);
+				// } else if (_subscriptionSupported) {
+				return _request(args);
+			// } else {
+			// 	try {
+			// 		// if (args.params[0] == 'newHeads' && (ethereum as any).isBraveWallet) {
+			// 		// 	throw new Error('Brave Wallet do not support newHeads subscriptions');
+			// 		// }
+			// 		const result = await _request(args);
+			// 		_subscriptionSupported = true;
+			// 		return result;
+			// 	} catch (err) {
+			// 		console.log(`sucription not supported, falling back on a subscription handler`);
+			// 		subscriptionHandler = createSubscriptionHandler(
+			// 			['newHeads'],
+			// 			(subscriptionHandler) => {
+			// 				poller.start(subscriptionHandler.broadcastNewHeads);
+			// 			},
+			// 			() => {
+			// 				poller.stop();
+			// 			}
+			// 		);
+			// 		return subscriptionHandler.handleSubscriptionRequest(args);
+			// 	}
+			// }
 			case 'eth_unsubscribe':
-				if (subscriptionHandler) {
-					return subscriptionHandler.handleUnSubscriptionRequest(args);
-				} else {
-					return _request(args);
-				}
+				// if (subscriptionHandler) {
+				// 	return subscriptionHandler.handleUnSubscriptionRequest(args);
+				// } else {
+				return _request(args);
+			// }
 		}
 
 		// TODO handle unlocking via 'eth_requestAccounts ?
@@ -331,19 +379,19 @@ export function wrapProvider(
 	}
 
 	function on(event: string, listener: (event: string, data: any) => void) {
-		if (event === 'message' && subscriptionHandler) {
-			subscriptionHandler.handleOn(event as 'message', listener as any);
-		} else {
-			return ethereum.on(event as any, listener as any);
-		}
+		// if (event === 'message' && subscriptionHandler) {
+		// 	subscriptionHandler.handleOn(event as 'message', listener as any);
+		// } else {
+		return ethereum.on(event as any, listener as any);
+		// }
 	}
 
 	function removeListener(event: string, listener: (event: string, data: any) => void) {
-		if (event === 'message' && subscriptionHandler) {
-			subscriptionHandler.handleRemoveListener(event as 'message', listener as any);
-		} else {
-			return ethereum.removeListener(event as any, listener as any);
-		}
+		// if (event === 'message' && subscriptionHandler) {
+		// 	subscriptionHandler.handleRemoveListener(event as 'message', listener as any);
+		// } else {
+		return ethereum.removeListener(event as any, listener as any);
+		// }
 	}
 
 	function setNextMetadata(metadata: any) {
@@ -369,6 +417,9 @@ export function wrapProvider(
 			__web3_connection__: true,
 			setObservers,
 			unsetObservers,
+			currentTime,
+			setUnderlyingProvider,
+			underlyingProvider,
 		},
 		{
 			get: function (target, property, receiver) {
@@ -379,11 +430,14 @@ export function wrapProvider(
 					case 'setNextMetadata':
 					case '__web3_connection__':
 					case 'setObservers':
+					case 'currentTime':
 					case 'unsetObservers':
+					case 'setUnderlyingProvider':
+					case 'underlyingProvider':
 						return (target as any)[property];
 				}
 				return (ethereum as any)[property];
 			},
 		}
-	) as unknown as ObservableProvider;
+	) as unknown as WrappedProvider;
 }
