@@ -1,6 +1,6 @@
 {
 	"name": "web3-connection",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"type": "module",
 	"exports": {
 		".": {
@@ -17,6 +17,7 @@
 		"svelte": "^3.54.0"
 	},
 	"devDependencies": {
+		"@changesets/cli": "^2.26.1",
 		"@sveltejs/adapter-static": "^2.0.2",
 		"@sveltejs/kit": "^1.15.9",
 		"@sveltejs/package": "^2.0.2",
