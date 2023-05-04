@@ -1,6 +1,9 @@
 {
 	"name": "web3-connection",
 	"version": "0.0.4",
+	"publishConfig": {
+		"access": "public"
+	},
 	"type": "module",
 	"exports": {
 		".": {
