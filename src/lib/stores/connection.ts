@@ -15,15 +15,17 @@ import { createManageablePromise, createManageablePromiseWithId } from '$lib/uti
 import { getContractInfos } from '$lib/utils/contracts';
 import { fetchPreviousSelection, recordSelection } from './localStorage';
 import type {
+	EIP1193Block,
 	EIP1193ChainId,
 	EIP1193Message,
 	EIP1193Provider,
 	EIP1193ProviderRpcError,
 } from 'eip-1193';
-import type { DefaultProvider } from '$lib/provider/rpc';
 import { createRPCProvider } from '$lib/provider/rpc';
 import { initEmitter } from '$lib/external/callbacks';
 import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/types';
+
+type Timeout = NodeJS.Timeout;
 
 const logger = logs('web3-connection');
 
@@ -71,7 +73,6 @@ export type ConnectedState = BaseConnectionState & {
 	loadingModule: false;
 	walletType: { type: string; name?: string };
 	provider: EIP1193Provider;
-	defaultProvider?: DefaultProvider;
 };
 
 export type DisconnectedState = BaseConnectionState & {
@@ -82,7 +83,6 @@ export type DisconnectedState = BaseConnectionState & {
 	loadingModule: boolean;
 	walletType?: { type: string; name?: string };
 	provider?: EIP1193Provider;
-	defaultProvider?: DefaultProvider;
 };
 
 export type ConnectionState = ConnectedState | DisconnectedState;
@@ -167,8 +167,17 @@ export type ExecutionState = {
 	error?: ConnectionError;
 };
 
+export type Parameters = {
+	finality: number;
+	blockTime: number;
+};
+
+export type ParametersPerNetwork = { default: Parameters; [chainId: string]: Parameters };
+export type FlexibleParameters = Parameters | ParametersPerNetwork;
+
 export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 	options?: (string | Web3WModule | Web3WModuleLoader)[];
+	parameters?: FlexibleParameters;
 	autoConnectUsingPrevious?: boolean;
 	networks?: NetworkConfigs<NetworkConfig>;
 	defaultRPC?: { chainId: string; url: string }; // TODO per chain ?
@@ -204,6 +213,19 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		}
 		return m;
 	});
+	const defaultParams = {
+		finality: 12,
+		blockTime: 5,
+	};
+	const parameters: ParametersPerNetwork = config.parameters
+		? 'finality' in config.parameters
+			? {
+					default: config.parameters as Parameters,
+			  }
+			: (config.parameters as ParametersPerNetwork)
+		: {
+				default: defaultParams,
+		  };
 	// ----------------------------------------------------------------------------------------------
 
 	// ----------------------------------------------------------------------------------------------
@@ -226,13 +248,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		loadingModule: false,
 		provider: undefined,
 		walletType: undefined,
-		defaultProvider: config.defaultRPC ? createRPCProvider(config.defaultRPC) : undefined,
 
 		toJSON(): Partial<ConnectionState> {
 			return {
 				...$state,
 				provider: undefined,
-				defaultProvider: undefined,
 			};
 		},
 	});
@@ -295,115 +315,97 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		return emitter.off(func);
 	}
 
-	let timeout: number | undefined;
-	let timer: number | undefined;
-	let currentSubscriptionId: `0x${string}` | undefined;
-	function handleNewHeads(
+	let timer: Timeout | undefined;
+	let subscriptionId: `0x${string}` | undefined;
+	async function handleNewHeads(
 		provider: EIP1193ProviderWithBlocknumberSubscription,
 		oldProvider?: EIP1193ProviderWithBlocknumberSubscription
 	) {
-		// if (timeout) {
-		// 	clearTimeout(timeout);
-		// }
-		// if (oldProvider && currentSubscriptionId) {
-		// 	oldProvider
-		// 		.request({ method: 'eth_unsubscribe', params: [currentSubscriptionId] })
-		// 		.catch((err) => {
-		// 			console.error(`failed to unsubscribe`);
-		// 		});
-		// }
+		if (subscriptionId && oldProvider) {
+			oldProvider
+				.request({
+					method: 'eth_unsubscribe',
+					params: [subscriptionId],
+				})
+				.catch((err) => {
+					console.error(`failed to unsubscribe from newHeads`, err);
+				});
+		}
 
-		// function resetNewHeadsTimeout() {
-		// 	clearTimeout(timeout);
-		// 	timeout = setTimeout(onSubscriptionFailure, 20000);
-		// }
+		const networkParams: Parameters = {
+			defaultParams,
+			...($network.chainId ? parameters[$network.chainId] : parameters.default),
+		} as any;
 
-		const timerDelay = 3000; // TODO config
+		const timerDelay = Math.max((networkParams.blockTime * 1000) / 2, 1000);
 
 		let timer_lastBlockNumber: number | undefined;
+		let timer_lastBlockTime: number | undefined;
+		// let timer_lastCurrenTime: number | undefined;
 		let timer_lastChainId: string | undefined;
-		let pending_request: Promise<`0x${string}`> | undefined;
+		let pending_request: Promise<EIP1193Block> | undefined;
+		async function checkLatestBlock() {
+			if (!pending_request && $network.chainId) {
+				pending_request = provider.request({
+					method: 'eth_getBlockByNumber',
+					params: ['latest', false],
+				});
+				const block = await pending_request;
+				pending_request = undefined;
+				// const currenTime = provider.currentTime();
+
+				const blockNumber = parseInt(block.number.slice(2), 16);
+
+				if (
+					$network.chainId !== timer_lastChainId ||
+					!timer_lastBlockNumber ||
+					blockNumber > timer_lastBlockNumber
+				) {
+					const blockTimestamp = parseInt(block.timestamp.slice(2), 16);
+					timer_lastChainId = $network.chainId;
+					timer_lastBlockNumber = blockNumber;
+					timer_lastBlockTime = blockTimestamp;
+					emitter.emit(blockNumber);
+				}
+			}
+		}
 		async function onTimer() {
 			try {
-				if (!pending_request && $network.chainId) {
-					pending_request = provider.request({ method: 'eth_blockNumber' });
-					const blockNumberSTR = await pending_request;
-					pending_request = undefined;
-					const blockNumber = parseInt(blockNumberSTR.slice(2), 16);
-					if (
-						$network.chainId !== timer_lastChainId ||
-						!timer_lastBlockNumber ||
-						blockNumber > timer_lastBlockNumber
-					) {
-						timer_lastChainId = $network.chainId;
-						timer_lastBlockNumber = blockNumber;
-						emitter.emit(blockNumber);
-					}
-				}
+				await checkLatestBlock();
 			} finally {
 				timer = setTimeout(onTimer, timerDelay);
 			}
 		}
 
-		async function onSubscriptionFailure() {
-			if (currentSubscriptionId) {
-				try {
-					await provider.request({ method: 'eth_unsubscribe', params: [currentSubscriptionId] });
-				} catch (err) {
-					console.error(`failed to unsubscribe`);
-				}
-				currentSubscriptionId = undefined;
-			}
-
-			if (!timer) {
-				onTimer();
-			}
+		if (!timer) {
+			onTimer();
 		}
 
-		// async function onNewHeads(message: EIP1193Message) {
-		// 	const data = message.data;
-		// 	if (
-		// 		message.type === 'eth_subscription' &&
-		// 		data &&
-		// 		typeof data === 'object' &&
-		// 		'subscription' in data
-		// 	) {
-		// 		try {
-		// 			const blockNumber = await provider.request({ method: 'eth_blockNumber' });
-		// 			emitter.emit(parseInt(blockNumber.slice(2), 16));
-		// 		} finally {
-		// 			if (data.subscription === currentSubscriptionId) {
-		// 				resetNewHeadsTimeout();
-		// 			}
-		// 		}
-		// 	}
-		// }
-
-		// function listenTo(subscriptionId: `0x${string}`) {
-		// 	currentSubscriptionId = subscriptionId;
-		// 	resetNewHeadsTimeout();
-		// }
-
-		// if ('on' in provider) {
-		// 	provider
-		// 		.request({ method: 'eth_subscribe', params: ['newHeads'] })
-		// 		.then((subscriptionId: string) => {
-		// 			provider.on('message', onNewHeads);
-		// 			listenTo(subscriptionId as `0x${string}`);
-		// 		})
-		// 		.catch((err) => {
-		// 			console.error(
-		// 				`Error making newHeads subscription: ${err.message}.
-		// 				 Code: ${err.code}. Data: ${err.data}
-		// 				 Falling back on timeout
-		// 				 `
-		// 			);
-		// 			onSubscriptionFailure();
-		// 		});
-		// } else {
-		// 	onSubscriptionFailure();
-		// }
-		onSubscriptionFailure();
+		try {
+			const newSubscriptionId = await provider.request({
+				method: 'eth_subscribe',
+				params: ['newHeads'],
+			});
+			subscriptionId = newSubscriptionId as `0x${string}`;
+			try {
+				provider.on('message', (message: EIP1193Message) => {
+					if (
+						message.type === 'eth_subscription' &&
+						message.data &&
+						typeof message.data === 'object' &&
+						'subscription' in message.data
+					) {
+						if (subscriptionId === message.data.subscription) {
+							checkLatestBlock();
+						}
+					}
+				});
+			} catch (err) {
+				console.error(`could not listen for message`, err);
+			}
+		} catch (err) {
+			// console.error(`could not subscribe to "newHeads" messages`);
+		}
 	}
 
 	const observers = config.observers
@@ -411,9 +413,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		: observersForPendingActions;
 
 	let single_provider: WrappedProvider | undefined;
-	function createProvider(ethereum: EIP1193Provider): EIP1193Provider {
+	function createProvider(ethereum: EIP1193ProviderWithBlocknumberSubscription): WrappedProvider {
 		let old_provider: EIP1193ProviderWithBlocknumberSubscription | undefined;
-		if (!single_provider || '__web3_connection__' in ethereum) {
+		if (!single_provider) {
 			single_provider = wrapProvider(ethereum, observers);
 		} else {
 			old_provider = single_provider.underlyingProvider;
@@ -425,33 +427,25 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	// ----------------------------------------------------------------------------------------------
 
-	// ----------------------------------------------------------------------------------------------
-	// attempt to wrap window.ethereum so all request are captured, no matter how you want to handle it
-	// ----------------------------------------------------------------------------------------------
-	try {
-		if (globalThis.window.ethereum) {
-			// try to wrap the ethereum object if possible
-			globalThis.window.ethereum = createProvider(globalThis.window.ethereum);
-		}
-	} catch (err) {
-		logger.info(err);
-	}
-	// ----------------------------------------------------------------------------------------------
+	// TODO but at a lower leve, wrap is doing too much currently
+	// // ----------------------------------------------------------------------------------------------
+	// // attempt to wrap window.ethereum so all request are captured, no matter how you want to handle it
+	// // ----------------------------------------------------------------------------------------------
+	// try {
+	// 	if (globalThis.window.ethereum) {
+	// 		// try to wrap the ethereum object if possible
+	// 		createProvider(globalThis.window.ethereum);
+	// 	}
+	// } catch (err) {
+	// 	logger.info(err);
+	// }
+	// // ----------------------------------------------------------------------------------------------
 
 	function hasChainChanged(chainId: string): boolean {
 		return chainId !== $network.chainId;
 	}
 
 	async function onChainChanged(chainId: string) {
-		if (config.defaultRPC && $state.defaultProvider) {
-			if (chainId === config.defaultRPC.chainId) {
-				// make use of the user's chosen wallet provider
-				$state.defaultProvider.fallbackOn($state.provider);
-			} else {
-				// go back to rpc requests
-				$state.defaultProvider.fallbackOn(undefined);
-			}
-		}
 		if (chainId === '0xNaN') {
 			logger.warn('onChainChanged bug (return 0xNaN), Metamask bug?');
 			if (!$state.provider) {
@@ -473,7 +467,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				if (needToLoadAccountData) {
 					setAccount({ state: 'Disconnected', loadingData: 'Loading account...' });
 				}
-				await handleAccount($account.address, chainIdAsDecimal);
+				await handleAccount($account.address, chainIdAsDecimal, false);
 			} catch (err) {
 				if (needToLoadAccountData) {
 					setAccount({
@@ -484,7 +478,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					}); // TODO any
 					_connect.resolve(['connection+account', 'connection+network+account'], false);
 				}
-				console.error(err);
+				console.error(`failed to handle network and account`, err);
 			}
 		}
 	}
@@ -592,14 +586,18 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		logger.debug('onAccountsChanged', { accounts }); // TODO
 		const address = accounts[0];
 		lastAccount = address;
-		handleAccount(address);
+		handleAccount(address, undefined, false);
 	}
 
 	function listenForChanges() {
 		if ($state.provider && !listening) {
 			logger.log('LISTENNING');
-			$state.provider.on('chainChanged', onChainChanged);
-			$state.provider.on('accountsChanged', onAccountsChanged);
+			try {
+				$state.provider.on('chainChanged', onChainChanged);
+				$state.provider.on('accountsChanged', onAccountsChanged);
+			} catch (err) {
+				// console.error(`cannot add listeners`, err);
+			}
 
 			listening = true;
 
@@ -613,8 +611,13 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	function stopListeningForChanges() {
 		if ($state.provider && listening) {
 			logger.log('STOP LISTENNING');
-			$state.provider.removeListener('chainChanged', onChainChanged);
-			$state.provider.removeListener('accountsChanged', onAccountsChanged);
+			try {
+				$state.provider.removeListener('chainChanged', onChainChanged);
+				$state.provider.removeListener('accountsChanged', onAccountsChanged);
+			} catch (err) {
+				// console.error(`cannot remove listeners`, err);
+			}
+
 			listening = false;
 		}
 	}
@@ -885,7 +888,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	// let accountUpdateCounter: number = 0;
 	// TODO? nativeTOken balance, token balances ?
-	async function handleAccount(address: `0x${string}` | undefined, newChainId?: string) {
+	async function handleAccount(
+		address: `0x${string}` | undefined,
+		newChainId?: string,
+		auto_connect: boolean = true
+	) {
 		let loadCounterUsed = loadCounter;
 		const chainId = newChainId || $network.chainId;
 		// let counter = ++accountUpdateCounter;
@@ -1046,7 +1053,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				locked: true,
 				address: $account.address,
 			});
-			_connect.resolve(['connection+account', 'connection+network+account'], false);
+
+			if (auto_connect) {
+				await disconnect(false);
+				// TODO  'connection+account' option
+				await connect('connection+network+account');
+			}
 		}
 	}
 
@@ -1083,13 +1095,13 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		}
 		logger.debug({ accounts });
 		const address = accounts && accounts[0];
-		handleAccount(address);
+		handleAccount(address, undefined, autoUnlock);
 		if ($account.locked && autoUnlock) {
 			return unlock();
 		}
 	}
 
-	async function disconnect(): Promise<void> {
+	async function disconnect(resolve = true): Promise<void> {
 		stopListeningForChanges();
 		setAccount({ state: 'Disconnected', locked: false, unlocking: false, address: undefined });
 		setNetwork({
@@ -1111,7 +1123,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			provider: undefined,
 		});
 		recordSelection('');
-		_connect.resolve('*', false);
+		if (resolve) {
+			_connect.resolve('*', false);
+		}
 		if (moduleToDisconnect) {
 			await moduleToDisconnect.disconnect();
 		}
@@ -1124,7 +1138,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	function connect(
 		requirements: ConnectionRequirements = 'connection+network+account'
 	): Promise<boolean> {
-		return _connect.promise(requirements, async (resolve, reject) => {
+		async function attempt() {
 			let type: string | undefined;
 			if (!type) {
 				if (optionsAsStringArray.length === 0) {
@@ -1149,8 +1163,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						await fetchChainId();
 						await handleNetwork($network.chainId as string); // should be good
 					}
-					if ($account.locked) {
-						await unlock();
+					if ($account.state !== 'Connected') {
+						if ($account.locked) {
+							await unlock();
+						} else {
+							handleAccount($account.address);
+						}
 					}
 				}
 			} else {
@@ -1169,6 +1187,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					});
 				}
 			}
+		}
+		if (_connect.exists(requirements)) {
+			attempt();
+		}
+		return _connect.promise(requirements, async (resolve, reject) => {
+			attempt();
 		});
 	}
 
@@ -1435,10 +1459,10 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		}
 	}
 
-	async function autoStart() {
-		let timeout: number | undefined;
+	async function autoStart(fallback: () => Promise<void>) {
+		let timeout: Timeout | undefined;
 		try {
-			timeout = setTimeout(() => {
+			timeout = setTimeout(async () => {
 				// set({
 				// 	initialised: true,
 				// 	error: {
@@ -1446,27 +1470,46 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				// 		message: 'Your wallet seems to not respond, please reload.',
 				// 	},
 				// });
-				set({ initialised: true, connecting: false });
+				await fallback();
 			}, 2000);
 			const type = fetchPreviousSelection();
 			if (type && type !== '') {
 				await select(type, { autoUnlock: false });
+				clearTimeout(timeout);
+				set({ initialised: true, connecting: false });
+			} else {
+				clearTimeout(timeout);
+				fallback();
 			}
-		} finally {
+		} catch {
 			clearTimeout(timeout);
+			await fallback();
+		}
+	}
+
+	async function start() {
+		if (config.defaultRPC) {
+			const rpcProvider = createRPCProvider(config.defaultRPC);
 			set({
+				state: 'Connected',
+				connecting: false,
+				requireSelection: false,
+				walletType: { type: 'ReadOnly', name: config.defaultRPC.url },
+				provider: createProvider(rpcProvider),
 				initialised: true,
 			});
+		} else {
+			set({
+				initialised: true,
+			} as any); // TODO ensure we can set initilaized alone
 		}
 	}
 
 	if (typeof window !== 'undefined') {
 		if (config.autoConnectUsingPrevious) {
-			autoStart();
+			autoStart(start);
 		} else {
-			set({
-				initialised: true,
-			} as any); // TODO ensure we can set initilaized alone
+			start();
 		}
 	}
 
@@ -1480,11 +1523,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			cancel,
 			disconnect,
 			updateContractsInfos,
+			onNewBlock,
+			offNewBlock,
 		},
 		network: {
 			...readableNetwork,
 			switchTo,
-			onNewBlock,
 		},
 		account: {
 			...readableAccount,
@@ -1505,11 +1549,3 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		execute,
 	};
 }
-
-// if (import.meta.hot) {
-// 	import.meta.hot.accept((newModule) => {
-// 		if (newModule) {
-// 			console.log('web3-connection/connection updated');
-// 		}
-// 	});
-// }

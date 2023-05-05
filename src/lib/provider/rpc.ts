@@ -1,5 +1,5 @@
 import type { EIP1193Provider, EIP1193ProviderWithoutEvents, EIP1193Request } from 'eip-1193';
-import { createBlockPoller, createSubscriptionHandler } from './subscriptions';
+// import { createBlockPoller, createSubscriptionHandler } from './subscriptions';
 
 export type DefaultProvider = EIP1193Provider & {
 	fallbackOn(provider: EIP1193ProviderWithoutEvents | undefined): void;
@@ -32,14 +32,14 @@ export function createRPCProvider(config: { chainId: string; url: string }): Def
 			case 'wallet_switchEthereumChain':
 				throw new Error(`${args.method} not available on read-only RPC providers.`);
 			case 'eth_subscribe':
-				if (subscriptionHandler) {
-					return subscriptionHandler.handleSubscriptionRequest(args);
-				}
+				// if (subscriptionHandler) {
+				// 	return subscriptionHandler.handleSubscriptionRequest(args);
+				// }
 				throw new Error(`subscriptions are not available`);
 			case 'eth_unsubscribe':
-				if (subscriptionHandler) {
-					return subscriptionHandler.handleUnSubscriptionRequest(args);
-				}
+				// if (subscriptionHandler) {
+				// 	return subscriptionHandler.handleUnSubscriptionRequest(args);
+				// }
 				throw new Error(`subscriptions are not available`);
 		}
 		if (_fallbackProvider) {
@@ -81,45 +81,45 @@ export function createRPCProvider(config: { chainId: string; url: string }): Def
 		}
 	});
 
-	function on(event: string, listener: (event: string, data: any) => void) {
-		if (subscriptionHandler) {
-			subscriptionHandler.handleOn(event as 'message', listener as any);
-		}
-	}
+	// function on(event: string, listener: (event: string, data: any) => void) {
+	// 	if (subscriptionHandler) {
+	// 		subscriptionHandler.handleOn(event as 'message', listener as any);
+	// 	}
+	// }
 
-	function removeListener(event: string, listener: (event: string, data: any) => void) {
-		if (subscriptionHandler) {
-			subscriptionHandler.handleRemoveListener(event as 'message', listener as any);
-		}
-	}
+	// function removeListener(event: string, listener: (event: string, data: any) => void) {
+	// 	if (subscriptionHandler) {
+	// 		subscriptionHandler.handleRemoveListener(event as 'message', listener as any);
+	// 	}
+	// }
 
 	const provider = {
 		request,
-		on,
-		removeListener,
+		// on,
+		// removeListener,
 		fallbackOn(provider: EIP1193ProviderWithoutEvents | undefined) {
 			_fallbackProvider = provider;
 			chainIdPromise = request({ method: 'eth_chainId' }); // re ensure correct chainId
 		},
 		chainId: chainIdExpected,
-		clearSubscriptions() {
-			subscriptionHandler.clearSubscriptions();
-		},
-		stopPolling() {
-			poller?.stop();
-		},
+		// clearSubscriptions() {
+		// 	subscriptionHandler.clearSubscriptions();
+		// },
+		// stopPolling() {
+		// 	poller?.stop();
+		// },
 	} as unknown as DefaultProvider;
-	const poller = createBlockPoller(provider, 'newHeads', 4000);
+	// const poller = createBlockPoller(provider, 'newHeads', 4000);
 
-	const subscriptionHandler = createSubscriptionHandler(
-		['newHeads'],
-		(subcriptionHandler) => {
-			poller.start(subcriptionHandler.broadcastNewHeads);
-		},
-		() => {
-			poller.stop();
-		}
-	);
+	// const subscriptionHandler = createSubscriptionHandler(
+	// 	['newHeads'],
+	// 	(subcriptionHandler) => {
+	// 		poller.start(subcriptionHandler.broadcastNewHeads);
+	// 	},
+	// 	() => {
+	// 		poller.stop();
+	// 	}
+	// );
 
 	return provider;
 }

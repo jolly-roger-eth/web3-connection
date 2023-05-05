@@ -84,6 +84,9 @@ export function createManageablePromiseWithId<T>(callbacks?: {
 		return undefined;
 	}
 	return {
+		exists(id: string): boolean {
+			return !!_mapping[id];
+		},
 		promise(id: string, execute?: (resolve: ResolveFunction<T>, reject: RejectFunction) => void) {
 			if (_mapping[id]) {
 				return _mapping[id].promise;
@@ -101,6 +104,7 @@ export function createManageablePromiseWithId<T>(callbacks?: {
 			return _mapping[id].promise;
 		},
 		reject(ids: string | string[], err: unknown) {
+			console.log(`reject : ${ids}`);
 			if (ids === '' || ids === '*') {
 				const allIds = Object.keys(_mapping);
 				for (const id of allIds) {
@@ -123,6 +127,7 @@ export function createManageablePromiseWithId<T>(callbacks?: {
 			}
 		},
 		resolve(ids: string | string[], value: T) {
+			console.log(`resolve : ${ids}`);
 			if (ids === '' || ids === '*') {
 				const allIds = Object.keys(_mapping);
 				for (const id of allIds) {
@@ -144,5 +149,26 @@ export function createManageablePromiseWithId<T>(callbacks?: {
 				}
 			}
 		},
+		// cancel(ids: string | string[]) {
+		// 	console.log(`cancel : ${ids}`);
+		// 	if (ids === '' || ids === '*') {
+		// 		const allIds = Object.keys(_mapping);
+		// 		for (const id of allIds) {
+		// 			clear(id);
+		// 		}
+		// 	} else {
+		// 		if (typeof ids === 'string') {
+		// 			if (_mapping[ids]) {
+		// 				clear(ids);
+		// 			}
+		// 		} else {
+		// 			for (const id of ids) {
+		// 				if (_mapping[id]) {
+		// 					clear(id);
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// },
 	};
 }

@@ -92,7 +92,7 @@ export type WrappedProvider = ObservableProvider & {
 };
 
 export function wrapProvider(
-	underlyingProvider: EIP1193Provider,
+	providerToWrap: EIP1193Provider,
 	observers: EIP1193Observers
 ): WrappedProvider {
 	let _syncTime: number | undefined;
@@ -107,13 +107,14 @@ export function wrapProvider(
 	}
 
 	let currentObservers: EIP1193Observers | undefined = observers;
-	if ((underlyingProvider as any).__web3_connection__) {
+	if ((providerToWrap as any).__web3_connection__) {
+		const wrappedProvider: WrappedProvider = providerToWrap as WrappedProvider;
 		// do not rewrap if already an 1193 Proxy, but set the new observers
-		(underlyingProvider as any).setObservers(observers);
-		return underlyingProvider as WrappedProvider;
+		wrappedProvider.setObservers(observers);
+		return providerToWrap as WrappedProvider;
 	}
 
-	let ethereum = underlyingProvider;
+	let ethereum = providerToWrap;
 	function setUnderlyingProvider(newUnderlyingProvider: EIP1193Provider) {
 		ethereum = newUnderlyingProvider;
 	}
@@ -338,39 +339,6 @@ export function wrapProvider(
 					args.params[1],
 					getMetadata((args as any).params[2])
 				);
-			case 'eth_subscribe':
-				// if (subscriptionHandler) {
-				// 	return subscriptionHandler.handleSubscriptionRequest(args);
-				// } else if (_subscriptionSupported) {
-				return _request(args);
-			// } else {
-			// 	try {
-			// 		// if (args.params[0] == 'newHeads' && (ethereum as any).isBraveWallet) {
-			// 		// 	throw new Error('Brave Wallet do not support newHeads subscriptions');
-			// 		// }
-			// 		const result = await _request(args);
-			// 		_subscriptionSupported = true;
-			// 		return result;
-			// 	} catch (err) {
-			// 		console.log(`sucription not supported, falling back on a subscription handler`);
-			// 		subscriptionHandler = createSubscriptionHandler(
-			// 			['newHeads'],
-			// 			(subscriptionHandler) => {
-			// 				poller.start(subscriptionHandler.broadcastNewHeads);
-			// 			},
-			// 			() => {
-			// 				poller.stop();
-			// 			}
-			// 		);
-			// 		return subscriptionHandler.handleSubscriptionRequest(args);
-			// 	}
-			// }
-			case 'eth_unsubscribe':
-				// if (subscriptionHandler) {
-				// 	return subscriptionHandler.handleUnSubscriptionRequest(args);
-				// } else {
-				return _request(args);
-			// }
 		}
 
 		// TODO handle unlocking via 'eth_requestAccounts ?
@@ -378,21 +346,21 @@ export function wrapProvider(
 		return _request(args);
 	}
 
-	function on(event: string, listener: (event: string, data: any) => void) {
-		// if (event === 'message' && subscriptionHandler) {
-		// 	subscriptionHandler.handleOn(event as 'message', listener as any);
-		// } else {
-		return ethereum.on(event as any, listener as any);
-		// }
-	}
+	// function on(event: string, listener: (event: string, data: any) => void) {
+	// 	// if (event === 'message' && subscriptionHandler) {
+	// 	// 	subscriptionHandler.handleOn(event as 'message', listener as any);
+	// 	// } else {
+	// 	return ethereum.on(event as any, listener as any);
+	// 	// }
+	// }
 
-	function removeListener(event: string, listener: (event: string, data: any) => void) {
-		// if (event === 'message' && subscriptionHandler) {
-		// 	subscriptionHandler.handleRemoveListener(event as 'message', listener as any);
-		// } else {
-		return ethereum.removeListener(event as any, listener as any);
-		// }
-	}
+	// function removeListener(event: string, listener: (event: string, data: any) => void) {
+	// 	// if (event === 'message' && subscriptionHandler) {
+	// 	// 	subscriptionHandler.handleRemoveListener(event as 'message', listener as any);
+	// 	// } else {
+	// 	return ethereum.removeListener(event as any, listener as any);
+	// 	// }
+	// }
 
 	function setNextMetadata(metadata: any) {
 		if (nextMetadata) {
@@ -411,22 +379,23 @@ export function wrapProvider(
 	return new Proxy(
 		{
 			request,
-			on,
-			removeListener,
+			// on,
+			// removeListener,
 			setNextMetadata,
 			__web3_connection__: true,
 			setObservers,
 			unsetObservers,
 			currentTime,
 			setUnderlyingProvider,
-			underlyingProvider,
 		},
 		{
 			get: function (target, property, receiver) {
 				switch (property) {
+					case 'underlyingProvider':
+						return ethereum;
 					case 'request':
-					case 'on':
-					case 'removeListener':
+					// case 'on':
+					// case 'removeListener':
 					case 'setNextMetadata':
 					case '__web3_connection__':
 					case 'setObservers':
