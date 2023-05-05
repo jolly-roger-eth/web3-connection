@@ -467,7 +467,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				if (needToLoadAccountData) {
 					setAccount({ state: 'Disconnected', loadingData: 'Loading account...' });
 				}
-				await handleAccount($account.address, chainIdAsDecimal, false);
+				await handleAccount($account.address, chainIdAsDecimal);
 			} catch (err) {
 				if (needToLoadAccountData) {
 					setAccount({
@@ -586,7 +586,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		logger.debug('onAccountsChanged', { accounts }); // TODO
 		const address = accounts[0];
 		lastAccount = address;
-		handleAccount(address, undefined, false);
+		handleAccount(address);
 	}
 
 	function listenForChanges() {
@@ -888,11 +888,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	// let accountUpdateCounter: number = 0;
 	// TODO? nativeTOken balance, token balances ?
-	async function handleAccount(
-		address: `0x${string}` | undefined,
-		newChainId?: string,
-		auto_connect: boolean = true
-	) {
+	async function handleAccount(address: `0x${string}` | undefined, newChainId?: string) {
 		let loadCounterUsed = loadCounter;
 		const chainId = newChainId || $network.chainId;
 		// let counter = ++accountUpdateCounter;
@@ -1054,11 +1050,10 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				address: $account.address,
 			});
 
-			if (auto_connect) {
-				await disconnect(false);
-				// TODO  'connection+account' option
-				await connect('connection+network+account');
-			}
+			// TODO if network was read-only ?
+			// await disconnect(false);
+			// // TODO  'connection+account' option
+			// await connect('connection+network+account');
 		}
 	}
 
@@ -1095,7 +1090,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		}
 		logger.debug({ accounts });
 		const address = accounts && accounts[0];
-		handleAccount(address, undefined, autoUnlock);
+		handleAccount(address);
 		if ($account.locked && autoUnlock) {
 			return unlock();
 		}
@@ -1167,7 +1162,24 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						if ($account.locked) {
 							await unlock();
 						} else {
-							handleAccount($account.address);
+							if ($account.address) {
+								handleAccount($account.address);
+							} else {
+								set({
+									connecting: true,
+								});
+								if (!type) {
+									await builtin.probe();
+									set({
+										requireSelection: true,
+									});
+								} else {
+									select(type).catch((err) => {
+										_connect.reject('*', err);
+										throw err;
+									});
+								}
+							}
 						}
 					}
 				}
