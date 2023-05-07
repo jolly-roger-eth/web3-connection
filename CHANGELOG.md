@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.7
+
+### Patch Changes
+
+- forgot to remvoe listening=true
+
 ## 0.0.6
 
 ### Patch Changes
