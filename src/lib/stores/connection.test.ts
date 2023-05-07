@@ -88,7 +88,7 @@ describe('initialization', () => {
 		const provider = initTestProvider();
 		window.ethereum = provider;
 		provider.connectAccount(userAddress);
-		provider.lockAccount(userAddress);
+		provider.lock();
 		localStorage.setItem(LOCAL_STORAGE_PREVIOUS_WALLET_SLOT, 'builtin');
 		const { connection, account, network } = init({ autoConnectUsingPrevious: true });
 
@@ -121,7 +121,51 @@ describe('connection', () => {
 		expect(network.$state.state).to.equal('Connected');
 
 		expect(account.$state.state).to.equal('Disconnected');
-		await waitFor(account, { state: 'Connected' });
+		await connectionPromise;
 		expect(account.$state.address).to.equal(userAddress);
+	});
+});
+
+describe('execution', () => {
+	it('works unlocked', async () => {
+		const userAddress = '0x1111111111111111111111111111111111111112';
+		const provider = initTestProvider();
+		window.ethereum = provider;
+		const { connection, network, account, execution, execute } = await init({});
+		provider.acceptNextRequestAccount(userAddress);
+		const executionPromise = execute(async ($state) => {
+			// console.log({ $state });
+		});
+
+		await waitFor(connection, { state: 'Connected' });
+		expect(network.$state.state).to.equal('Connected');
+
+		expect(account.$state.state).to.equal('Disconnected');
+		await executionPromise;
+		expect(account.$state.address).to.equal(userAddress);
+	});
+
+	it('works locked', async () => {
+		const userAddress = '0x1111111111111111111111111111111111111112';
+		const provider = initTestProvider();
+		window.ethereum = provider;
+		const { connection, network, account, execution, execute } = await init({});
+		provider.connectAccount(userAddress);
+		provider.lock();
+		const executionPromise = execute(async ($state) => {
+			// console.log({ $state });
+		});
+
+		await waitFor(connection, { state: 'Connected' });
+		expect(network.$state.state).to.equal('Connected');
+
+		await waitFor(account, { locked: true });
+
+		expect(account.$state.state).to.equal('Disconnected');
+
+		provider.unlock();
+
+		await waitFor(account, { state: 'Connected' });
+		await executionPromise;
 	});
 });

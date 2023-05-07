@@ -231,7 +231,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	// ----------------------------------------------------------------------------------------------
 	// private state
 	// ----------------------------------------------------------------------------------------------
-	let listening: boolean = true;
+	let listening: boolean = false;
 	let currentModule: Web3WModule | undefined;
 	// ----------------------------------------------------------------------------------------------
 
