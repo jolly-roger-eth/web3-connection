@@ -280,11 +280,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	});
 
 	const setAccount: typeof _setAccount = (data) => {
-		console.log(`for : ${$account.address}`, data);
+		// console.log(`for : ${$account.address}`, data);
 
-		if ('address' in data && !data.address) {
-			console.log(`UNDEFINED address`);
-		}
+		// if ('address' in data && !data.address) {
+		// 	console.log(`UNDEFINED address`);
+		// }
 
 		_setAccount(data);
 		if ($account.state === 'Connected' && $account.locked) {
@@ -591,7 +591,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	function listenForChanges() {
 		if ($state.provider && !listening) {
-			logger.log('LISTENNING');
+			logger.info('LISTENNING');
 			try {
 				$state.provider.on('chainChanged', onChainChanged);
 				$state.provider.on('accountsChanged', onAccountsChanged);
@@ -610,7 +610,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	function stopListeningForChanges() {
 		if ($state.provider && listening) {
-			logger.log('STOP LISTENNING');
+			logger.info('STOP LISTENNING');
 			try {
 				$state.provider.removeListener('chainChanged', onChainChanged);
 				$state.provider.removeListener('accountsChanged', onAccountsChanged);
@@ -622,7 +622,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		}
 	}
 
-	async function fetchChainId() {
+	async function fetchAndSetChainId() {
 		// TODO check if reseting to Disconnected is good here
 		// for now we assert
 		if ($network.state === 'Connected') {
@@ -648,6 +648,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					notSupported: undefined,
 					contracts: undefined,
 				});
+				return chainId;
+			} else {
+				throw new Error(`no chainId returned`);
 			}
 		} catch (err) {
 			setNetwork({
@@ -666,11 +669,10 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		const { moduleConfig, autoUnlock: autoUnlockFromConfig } = config || { autoUnlock: true };
 		const autoUnlock = autoUnlockFromConfig === undefined ? true : autoUnlockFromConfig;
 
-		logger.log(`select...`);
 		try {
 			if ($state.state === 'Connected') {
 				// disconnect first
-				logger.log(`disconnecting for select...`);
+				logger.info(`disconnecting for select...`);
 				await disconnect();
 			}
 
@@ -701,9 +703,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				connecting: true,
 			});
 			if (typeOrModule === 'builtin') {
-				logger.log(`probing window.ethereum...`);
+				logger.info(`probing window.ethereum...`);
 				const builtinProvider = await builtin.probe();
-				logger.log(builtinProvider);
 				if (!builtinProvider) {
 					const message = `no window.ethereum found!`;
 					set({
@@ -758,7 +759,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						// }
 					}
 
-					logger.log(`setting up module`);
+					logger.info(`setting up module`);
 					const moduleSetup = await module.setup(moduleConfig); // TODO pass config in select to choose network
 
 					set({
@@ -774,7 +775,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 							(moduleSetup as any).eip1193Provider || (moduleSetup as any).web3Provider
 						),
 					});
-					logger.log(`module setup`);
+					logger.info(`module setup`);
 				} catch (err) {
 					currentModule = undefined;
 					set({
@@ -818,25 +819,28 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 			// TODO better naming/flow ?
 			try {
-				await fetchChainId();
+				await fetchAndSetChainId();
 			} catch (err) {
+				logger.log(`could not fetch chainId`);
+
+				const error = { message: `could not fetch chainId`, code: 1, cause: err };
 				// cannot fetch chainId, this means we are not connected
 				set({
 					connecting: false,
 					walletType: $state.walletType,
 					provider: $state.provider,
+					error,
 				});
-				_connect.reject('*', err);
-				return;
+
+				// TODO? this need to be everywhere where we throw : _connect.reject('*', err);  no ?
+				_connect.reject('*', error);
+				throw err;
 			}
 
+			// this allow typoescript to stay silent about $network.chainId being possibly undefined
 			if (!$network.chainId) {
-				const message = `no chainId set`;
-				set({
-					connecting: false,
-					error: { message, code: 1 }, // TODO code
-				});
-				throw new Error(message);
+				_connect.reject('*', 'chainId not set');
+				throw new Error(`chainId not set, should be impossible`);
 			}
 
 			// everything passed
@@ -859,7 +863,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				console.error(err);
 			}
 		} catch (err) {
-			logger.log(`select error`, err);
+			logger.info(`select error`, err);
 			set({
 				state: 'Disconnected',
 				connecting: false,
@@ -1061,12 +1065,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		let accounts: `0x${string}`[];
 		try {
 			try {
-				logger.log(`fetching accounts...`);
+				logger.info(`fetching accounts...`);
 				accounts = await provider.request({ method: 'eth_accounts' });
 			} catch (err) {
 				const errWithCode = err as { code: number; message: string };
 				if (errWithCode.code === 4100) {
-					logger.log(`4100 ${errWithCode.message || (errWithCode as any).name}`); // TOCHECK why name here ?
+					logger.info(`4100 ${errWithCode.message || (errWithCode as any).name}`); // TOCHECK why name here ?
 					// status-im throw such error if eth_requestAccounts was not called first
 					accounts = [];
 				} else if (errWithCode.code === -32500 && errWithCode.message === 'permission denied') {
@@ -1078,7 +1082,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					throw err;
 				}
 			}
-			logger.log(`accounts: ${accounts}`);
+			logger.info(`accounts: ${accounts}`);
 			// }
 		} catch (err) {
 			const errWithCode = err as { code: number; message: string };
@@ -1155,7 +1159,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					if ($network.chainId) {
 						await handleNetwork($network.chainId);
 					} else {
-						await fetchChainId();
+						await fetchAndSetChainId();
 						await handleNetwork($network.chainId as string); // should be good
 					}
 					if ($account.state !== 'Connected') {
@@ -1474,7 +1478,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	async function autoStart(fallback: () => Promise<void>) {
 		let timeout: Timeout | undefined;
 		try {
+			const delay = 2;
 			timeout = setTimeout(async () => {
+				logger.info(`attempt to reuse previous wallet timed out after ${delay} seconds.`);
 				// set({
 				// 	initialised: true,
 				// 	error: {
@@ -1483,12 +1489,16 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				// 	},
 				// });
 				await fallback();
-			}, 2000);
+			}, delay * 1000);
 			const type = fetchPreviousSelection();
 			if (type && type !== '') {
-				await select(type, { autoUnlock: false });
-				clearTimeout(timeout);
-				set({ initialised: true, connecting: false });
+				try {
+					await select(type, { autoUnlock: false });
+				} catch {
+				} finally {
+					clearTimeout(timeout);
+					set({ initialised: true });
+				}
 			} else {
 				clearTimeout(timeout);
 				fallback();
@@ -1501,6 +1511,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	async function start() {
 		if (config.defaultRPC) {
+			logger.info(`using defaultRPC provider ${config.defaultRPC}`);
 			const rpcProvider = createRPCProvider(config.defaultRPC);
 			set({
 				state: 'Connected',

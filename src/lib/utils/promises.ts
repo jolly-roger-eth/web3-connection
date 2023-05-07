@@ -104,7 +104,7 @@ export function createManageablePromiseWithId<T>(callbacks?: {
 			return _mapping[id].promise;
 		},
 		reject(ids: string | string[], err: unknown) {
-			console.log(`reject : ${ids}`);
+			// console.log(`reject : ${ids}`);
 			if (ids === '' || ids === '*') {
 				const allIds = Object.keys(_mapping);
 				for (const id of allIds) {
@@ -127,7 +127,7 @@ export function createManageablePromiseWithId<T>(callbacks?: {
 			}
 		},
 		resolve(ids: string | string[], value: T) {
-			console.log(`resolve : ${ids}`);
+			// console.log(`resolve : ${ids}`);
 			if (ids === '' || ids === '*') {
 				const allIds = Object.keys(_mapping);
 				for (const id of allIds) {
