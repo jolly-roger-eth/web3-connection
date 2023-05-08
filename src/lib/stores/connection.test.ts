@@ -183,7 +183,7 @@ describe('execution', () => {
 });
 
 describe('execution on network', () => {
-	it.only('works', async () => {
+	it('works', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
 		const user = initUser();
 		user.installBuiltinProvider();
@@ -242,13 +242,17 @@ describe('execution on network', () => {
 		});
 
 		await waitFor(connection, { state: 'Connected' });
-		expect(network.$state.state).to.equal('Connected');
+		expect(network.$state.state).to.equal('Disconnected');
 
 		await waitFor(account, { locked: true });
 
 		expect(account.$state.state).to.equal('Disconnected');
 
 		user.unlock();
+
+		user.switchChain('11');
+		user.switchChain('12');
+		await waitFor(network, { state: 'Connected' });
 
 		await waitFor(account, { state: 'Connected' });
 		await executionPromise;
