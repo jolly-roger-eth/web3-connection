@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.8
+
+### Patch Changes
+
+- fixes
+
 ## 0.0.7
 
 ### Patch Changes
