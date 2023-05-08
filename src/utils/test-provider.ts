@@ -8,6 +8,7 @@ export function initUser() {
 	let listenerMappings: Map<(result: any) => void, (event: CustomEvent) => void> = new Map();
 	let promises: { [key: string]: { resolve: (value: any) => void; reject: (error: any) => void } } =
 		{};
+	let current_chain = '1';
 
 	function resolve(key: string, value: any) {
 		const promise = promises[key];
@@ -45,7 +46,8 @@ export function initUser() {
 			const promise = new Promise((resolve, reject) => {
 				switch (request.method) {
 					case 'eth_chainId':
-						return resolve('0x01');
+						const chainIdAsHex = `0x${parseInt(current_chain).toString(16)}`;
+						return resolve(chainIdAsHex);
 					case 'eth_getBlockByNumber':
 						return resolve({
 							number: '0x01',
@@ -67,11 +69,26 @@ export function initUser() {
 						if (lastConnectedAccount && !locked) {
 							return resolve([lastConnectedAccount]);
 						}
-						const existing = promises['eth_requestAccounts'];
-						if (existing) {
-							return reject(new Error(`accounts already requested`));
+						const eth_requestAccounts = promises['eth_requestAccounts'];
+						if (eth_requestAccounts) {
+							return reject(new Error(`eth_requestAccounts already requested`));
 						}
 						promises['eth_requestAccounts'] = {
+							resolve,
+							reject,
+						};
+						return;
+					case 'wallet_switchEthereumChain':
+						// TODO wallet_addEthereumChain
+						const chainIdRequested = parseInt(request.params[0].chainId.slice(2), 16).toString();
+						if (current_chain && current_chain === chainIdRequested) {
+							return resolve(undefined);
+						}
+						const wallet_switchEthereumChain = promises['wallet_switchEthereumChain'];
+						if (wallet_switchEthereumChain) {
+							return reject(new Error(`wallet_switchEthereumChain already requested`));
+						}
+						promises['wallet_switchEthereumChain'] = {
 							resolve,
 							reject,
 						};
@@ -92,7 +109,14 @@ export function initUser() {
 		connectAccount(account: EIP1193Account) {
 			connectedAccounts[account] = true;
 			lastConnectedAccount = account;
-			emitter.dispatchEvent(new CustomEvent('accountsChanged', { detail: [account] }));
+			resolve('eth_requestAccounts', [lastConnectedAccount]);
+			emitter.dispatchEvent(new CustomEvent('accountsChanged', { detail: [lastConnectedAccount] }));
+		},
+		switchChain(chainId: string) {
+			current_chain = chainId;
+			const chainIdAsHex = `0x${parseInt(current_chain).toString(16)}`;
+			resolve('wallet_switchEthereumChain', chainIdAsHex);
+			emitter.dispatchEvent(new CustomEvent('chainChanged', { detail: chainIdAsHex }));
 		},
 		lock() {
 			const wasLocked = locked;

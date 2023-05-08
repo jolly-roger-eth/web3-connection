@@ -1420,13 +1420,19 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				],
 			});
 			if (!result) {
+				logger.info(`wallet_switchEthereumChain: complete`);
+				// this will be taken care with `chainChanged` (but maybe it should be done there ?)
 				// handleNetwork(chainId);
 			} else {
+				logger.info(`wallet_switchEthereumChain: a non-undefinded result means an error`, result);
 				throw result;
 			}
 		} catch (err) {
 			if ((err as any).code === 4902) {
 				if (config && config.rpcUrls && config.rpcUrls.length > 0) {
+					logger.info(
+						`wallet_switchEthereumChain: could not switch, try adding the chain via "wallet_addEthereumChain"`
+					);
 					try {
 						const result = await $state.provider.request({
 							method: 'wallet_addEthereumChain',
@@ -1442,20 +1448,31 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 							],
 						});
 						if (!result) {
+							// this will be taken care with `chainChanged` (but maybe it should be done there ?)
 							// handleNetwork(chainId);
 						} else {
-							// TODO error ?
+							logger.info(
+								`wallet_addEthereumChain: a non-undefinded result means an error`,
+								result
+							);
+							throw result;
 						}
 					} catch (err) {
 						if ((err as any).code !== 4001) {
+							logger.info(`wallet_addEthereumChain: failed`, err);
 							set({
 								error: err as any, // TODO
 							});
 						} else {
+							logger.info(
+								`wallet_addEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
+								err
+							);
 							return;
 						}
 					}
 				} else {
+					logger.info(`cannot call wallet_addEthereumChain as we do not have network details`);
 					set({
 						error: {
 							code: 1, // TODO CHAIN_NOT_AVAILABLE_ON_WALLET,
@@ -1464,11 +1481,17 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					});
 				}
 			} else {
+				logger.info(`wallet_switchEthereumChain: failed !== 4902`, err);
 				if ((err as any).code !== 4001) {
+					logger.info(`wallet_switchEthereumChain: failed !== 4001`, err);
 					set({
 						error: err as any, // TODO
 					});
 				} else {
+					logger.info(
+						`wallet_switchEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
+						err
+					);
 					return;
 				}
 			}

@@ -135,7 +135,7 @@ describe('connection', () => {
 });
 
 describe('execution', () => {
-	it('works unlocked', async () => {
+	it('works', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
 		const user = initUser();
 		user.installBuiltinProvider();
@@ -162,6 +162,79 @@ describe('execution', () => {
 		user.installBuiltinProvider();
 
 		const { connection, network, account, execution, execute } = await init({});
+		user.connectAccount(userAddress);
+		user.lock();
+		const executionPromise = execute(async ($state) => {
+			// console.log({ $state });
+		});
+
+		await waitFor(connection, { state: 'Connected' });
+		expect(network.$state.state).to.equal('Connected');
+
+		await waitFor(account, { locked: true });
+
+		expect(account.$state.state).to.equal('Disconnected');
+
+		user.unlock();
+
+		await waitFor(account, { state: 'Connected' });
+		await executionPromise;
+	});
+});
+
+describe('execution on network', () => {
+	it.only('works', async () => {
+		const userAddress = '0x1111111111111111111111111111111111111112';
+		const user = initUser();
+		user.installBuiltinProvider();
+
+		const { connection, network, account, execution, execute } = await init({
+			networks: {
+				chainId: '12',
+				contracts: {
+					Test: {
+						abi: [],
+						address: '0xFF1111111111111111111111111111111111112',
+					},
+				},
+			},
+		});
+
+		const executionPromise = execute(async ($state) => {
+			// console.log({ $state });
+		});
+
+		await waitFor(connection, { state: 'Connected' });
+		expect(network.$state.state).to.equal('Disconnected');
+		expect(account.$state.state).to.equal('Disconnected');
+
+		// network.switchTo('12');
+		user.switchChain('12');
+		await waitFor(network, { state: 'Connected' });
+
+		user.connectAccount(userAddress);
+
+		await executionPromise;
+		expect(account.$state.address).to.equal(userAddress);
+	});
+
+	it('works locked', async () => {
+		const userAddress = '0x1111111111111111111111111111111111111112';
+		const user = initUser();
+		user.installBuiltinProvider();
+
+		const { connection, network, account, execution, execute } = await init({
+			networks: {
+				chainId: '12',
+				contracts: {
+					Test: {
+						abi: [],
+						address: '0xFF1111111111111111111111111111111111112',
+					},
+				},
+			},
+		});
+
 		user.connectAccount(userAddress);
 		user.lock();
 		const executionPromise = execute(async ($state) => {
