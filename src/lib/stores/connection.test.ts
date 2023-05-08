@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { init, type ConnectionState } from './connection';
 import { LOCAL_STORAGE_PREVIOUS_WALLET_SLOT } from './localStorage';
 import { waitFor } from '../../utils';
-import { initTestProvider } from '../../utils/test-provider';
+import { initUser } from '../../utils/test-provider';
 
 describe('initialization', () => {
 	it('works', async () => {
@@ -41,7 +41,9 @@ describe('initialization', () => {
 	});
 
 	it('auto connect with builtin', async () => {
-		window.ethereum = initTestProvider();
+		const user = initUser();
+		user.installBuiltinProvider();
+
 		localStorage.setItem(LOCAL_STORAGE_PREVIOUS_WALLET_SLOT, 'builtin');
 		const { connection, account, network } = init({ autoConnectUsingPrevious: true });
 
@@ -62,9 +64,11 @@ describe('initialization', () => {
 
 	it('auto connect with builtin and  account unlocked', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
-		const provider = initTestProvider();
-		window.ethereum = provider;
-		provider.connectAccount(userAddress);
+		const user = initUser();
+		user.installBuiltinProvider();
+
+		user.connectAccount(userAddress);
+
 		localStorage.setItem(LOCAL_STORAGE_PREVIOUS_WALLET_SLOT, 'builtin');
 		const { connection, account, network } = init({ autoConnectUsingPrevious: true });
 
@@ -85,10 +89,12 @@ describe('initialization', () => {
 
 	it('auto connect with builtin and  account locked', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
-		const provider = initTestProvider();
-		window.ethereum = provider;
-		provider.connectAccount(userAddress);
-		provider.lock();
+		const user = initUser();
+		user.installBuiltinProvider();
+
+		user.connectAccount(userAddress);
+		user.lock();
+
 		localStorage.setItem(LOCAL_STORAGE_PREVIOUS_WALLET_SLOT, 'builtin');
 		const { connection, account, network } = init({ autoConnectUsingPrevious: true });
 
@@ -111,11 +117,13 @@ describe('initialization', () => {
 describe('connection', () => {
 	it('works', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
-		const provider = initTestProvider();
-		window.ethereum = provider;
+		const user = initUser();
+		user.installBuiltinProvider();
+
 		const { connection, network, account } = await init({});
-		provider.acceptNextRequestAccount(userAddress);
 		const connectionPromise = connection.connect();
+
+		user.connectAccount(userAddress);
 
 		await waitFor(connection, { state: 'Connected' });
 		expect(network.$state.state).to.equal('Connected');
@@ -129,29 +137,33 @@ describe('connection', () => {
 describe('execution', () => {
 	it('works unlocked', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
-		const provider = initTestProvider();
-		window.ethereum = provider;
+		const user = initUser();
+		user.installBuiltinProvider();
+
 		const { connection, network, account, execution, execute } = await init({});
-		provider.acceptNextRequestAccount(userAddress);
+
 		const executionPromise = execute(async ($state) => {
 			// console.log({ $state });
 		});
 
 		await waitFor(connection, { state: 'Connected' });
 		expect(network.$state.state).to.equal('Connected');
-
 		expect(account.$state.state).to.equal('Disconnected');
+
+		user.connectAccount(userAddress);
+
 		await executionPromise;
 		expect(account.$state.address).to.equal(userAddress);
 	});
 
 	it('works locked', async () => {
 		const userAddress = '0x1111111111111111111111111111111111111112';
-		const provider = initTestProvider();
-		window.ethereum = provider;
+		const user = initUser();
+		user.installBuiltinProvider();
+
 		const { connection, network, account, execution, execute } = await init({});
-		provider.connectAccount(userAddress);
-		provider.lock();
+		user.connectAccount(userAddress);
+		user.lock();
 		const executionPromise = execute(async ($state) => {
 			// console.log({ $state });
 		});
@@ -163,7 +175,7 @@ describe('execution', () => {
 
 		expect(account.$state.state).to.equal('Disconnected');
 
-		provider.unlock();
+		user.unlock();
 
 		await waitFor(account, { state: 'Connected' });
 		await executionPromise;

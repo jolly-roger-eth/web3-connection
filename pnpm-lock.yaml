@@ -37,8 +37,8 @@ devDependencies:
     specifier: ^2.51.6
     version: 2.51.6(autoprefixer@10.4.14)(postcss@8.4.23)
   eip-1193:
-    specifier: ^0.2.5
-    version: 0.2.5
+    specifier: ^0.3.0
+    version: 0.3.0
   jsdom:
     specifier: ^22.0.0
     version: 22.0.0
@@ -1370,8 +1370,8 @@ packages:
     engines: {node: '>=12'}
     dev: true
 
-  /eip-1193@0.2.5:
-    resolution: {integrity: sha512-zDA+VRO/uSZ/GF+VJM+Blgg1Ue/6n7KCvVyZVEsCF4F4LcdNDs6XdpJqA7bH2Ekkc/n1Z5ZJ5CS6qs3NY8HvFw==}
+  /eip-1193@0.3.0:
+    resolution: {integrity: sha512-Z6k9XkXX2bjUNZXJhKOrz2hWP2iL4p91BftwXDQR+fdkriinHvAuHsfdeNN0lS2DuVSChkh6Tq2r5s8ExlCtAA==}
     dev: true
 
   /electron-to-chromium@1.4.379:
