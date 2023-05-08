@@ -673,7 +673,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			if ($state.state === 'Connected') {
 				// disconnect first
 				logger.info(`disconnecting for select...`);
-				await disconnect();
+				await disconnect(false);
 			}
 
 			let typeOrModule: string | Web3WModule | Web3WModuleLoader = type;
@@ -995,9 +995,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 									// locked: false,
 									loadingData: undefined,
 									loadingStep: undefined,
-									error: err as any,
+									error: err as any, // {error, code, cause}
 								});
-								_connect.resolve(['connection+account', 'connection+network+account'], false);
+								// not sure if we should resolve to false here,
+								// TODO let user retry load account
+								// _connect.resolve(['connection+account', 'connection+network+account'], false);
 							}
 						} else {
 							if ($account.state !== 'Connected') {
@@ -1024,7 +1026,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 							address,
 							loadingData: 'Waiting for Network...',
 						});
-						_connect.resolve(['connection+account', 'connection+network+account'], false);
+						// do not resolve to false here
+						// _connect.resolve(['connection+account', 'connection+network+account'], false);
 					}
 				} catch (err) {
 					setAccount({
@@ -1034,9 +1037,10 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						address,
 						loadingData: undefined,
 						loadingStep: undefined,
-						error: err as any,
+						error: err as any, // TODO {error, code, message, cause}
 					});
-					_connect.resolve(['connection+account', 'connection+network+account'], false);
+					// do not resolve to false here
+					// _connect.resolve(['connection+account', 'connection+network+account'], false);
 				}
 			} else {
 				setAccount({ state: 'Connected', locked: false, address, unlocking: false });
@@ -1137,6 +1141,23 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	function connect(
 		requirements: ConnectionRequirements = 'connection+network+account'
 	): Promise<boolean> {
+		async function fromDisconnected(type?: string) {
+			set({
+				connecting: true,
+			});
+			if (!type) {
+				await builtin.probe();
+				set({
+					requireSelection: true,
+				});
+			} else {
+				select(type).catch((err) => {
+					_connect.reject('*', err);
+					throw err;
+				});
+			}
+		}
+
 		async function attempt() {
 			let type: string | undefined;
 			if (!type) {
@@ -1148,14 +1169,27 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			}
 			if ($state.state === 'Connected') {
 				if ($network.state === 'Connected') {
-					if ($account.state !== 'Connected') {
-						if ($account.locked) {
-							await unlock();
-						} else {
-							handleAccount($account.address);
+					if (requirements === 'connection+network+account') {
+						if ($account.state !== 'Connected') {
+							if ($state.walletType.type === 'ReadOnly') {
+								await disconnect(false);
+								await fromDisconnected(type);
+							} else {
+								if ($account.locked) {
+									await unlock();
+								} else {
+									handleAccount($account.address);
+								}
+							}
 						}
+					} else {
+						_connect.resolve(['connection', 'connection+network'], true);
 					}
 				} else {
+					// TODO? connection+account ?
+					if (requirements === 'connection') {
+						return _connect.resolve('connection', true);
+					}
 					if ($network.chainId) {
 						await handleNetwork($network.chainId);
 					} else {
@@ -1188,20 +1222,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					}
 				}
 			} else {
-				set({
-					connecting: true,
-				});
-				if (!type) {
-					await builtin.probe();
-					set({
-						requireSelection: true,
-					});
-				} else {
-					select(type).catch((err) => {
-						_connect.reject('*', err);
-						throw err;
-					});
-				}
+				await fromDisconnected(type);
 			}
 		}
 		if (_connect.exists(requirements)) {
@@ -1268,7 +1289,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 								},
 							});
 							// we ignore the error
-							_connect.resolve(['connection+account', 'connection+network+account'], false);
+							// we should not resolve
+							// _connect.resolve(['connection+account', 'connection+network+account'], false);
 							return;
 						}
 						break;
@@ -1285,6 +1307,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 								},
 							});
 							// we ignore the error
+							// we should not resolve
 							_connect.resolve(['connection+account', 'connection+network+account'], false);
 							return;
 						}
@@ -1387,6 +1410,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	async function cancelExecution() {
 		if ($execution.executing) {
+			// what about other connect ?
 			_connect.resolve('*', false);
 		}
 	}
@@ -1544,6 +1568,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				provider: createProvider(rpcProvider),
 				initialised: true,
 			});
+			await handleNetwork(config.defaultRPC.chainId);
 		} else {
 			set({
 				initialised: true,

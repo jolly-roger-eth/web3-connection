@@ -16,6 +16,12 @@ export function createRPCProvider(config: { chainId: string; url: string }): Def
 
 	let chainIdPromise: Promise<string> | undefined;
 	async function request(args: EIP1193Request) {
+		// Not documented but we can pass a provider
+		// we use it in test to test for defaultRPC
+		if (typeof url !== 'string') {
+			return (url as any).request(args);
+		}
+
 		if (chainIdPromise) {
 			await chainIdPromise;
 		}

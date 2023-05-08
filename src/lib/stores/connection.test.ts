@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { init, type ConnectionState } from './connection';
 import { LOCAL_STORAGE_PREVIOUS_WALLET_SLOT } from './localStorage';
 import { waitFor } from '../../utils';
-import { initUser } from '../../utils/test-provider';
+import { fakeRPCProvider, initUser } from '../../utils/test-provider';
 
 describe('initialization', () => {
 	it('works', async () => {
@@ -203,19 +203,68 @@ describe('execution on network', () => {
 		const executionPromise = execute(async ($state) => {
 			// console.log({ $state });
 		});
+		expect(execution.$state.executing).toEqual(true);
 
 		await waitFor(connection, { state: 'Connected' });
 		expect(network.$state.state).to.equal('Disconnected');
 		expect(account.$state.state).to.equal('Disconnected');
 
+		user.connectAccount(userAddress);
+		await waitFor(account, { state: 'Connected' });
+		expect(execution.$state.executing).toEqual(true);
+
 		// network.switchTo('12');
 		user.switchChain('12');
 		await waitFor(network, { state: 'Connected' });
 
-		user.connectAccount(userAddress);
+		expect(execution.$state.executing).toEqual(true);
 
 		await executionPromise;
 		expect(account.$state.address).to.equal(userAddress);
+		expect(execution.$state.executing).toEqual(false);
+	});
+
+	it('works even when started with defaultRPC', async () => {
+		const userAddress = '0x1111111111111111111111111111111111111112';
+		const user = initUser();
+		user.installBuiltinProvider();
+
+		const fakeRPC = fakeRPCProvider('12') as any;
+		const { connection, network, account, execution, execute } = await init({
+			networks: {
+				chainId: '12',
+				contracts: {
+					Test: {
+						abi: [],
+						address: '0xFF1111111111111111111111111111111111112',
+					},
+				},
+			},
+			defaultRPC: { chainId: '12', url: fakeRPC },
+		});
+
+		const executionPromise = execute(async ($state) => {
+			// console.log({ $state });
+		});
+		expect(execution.$state.executing).toEqual(true);
+
+		await waitFor(connection, { state: 'Connected' });
+		expect(network.$state.state).to.equal('Disconnected');
+		expect(account.$state.state).to.equal('Disconnected');
+
+		user.connectAccount(userAddress);
+		await waitFor(account, { state: 'Connected' });
+		expect(execution.$state.executing).toEqual(true);
+
+		// network.switchTo('12');
+		user.switchChain('12');
+		await waitFor(network, { state: 'Connected' });
+
+		expect(execution.$state.executing).toEqual(true);
+
+		await executionPromise;
+		expect(account.$state.address).to.equal(userAddress);
+		expect(execution.$state.executing).toEqual(false);
 	});
 
 	it('works locked', async () => {
@@ -241,20 +290,31 @@ describe('execution on network', () => {
 			// console.log({ $state });
 		});
 
+		expect(execution.$state.executing).toEqual(true);
+
 		await waitFor(connection, { state: 'Connected' });
 		expect(network.$state.state).to.equal('Disconnected');
+
+		expect(execution.$state.executing).toEqual(true);
 
 		await waitFor(account, { locked: true });
 
 		expect(account.$state.state).to.equal('Disconnected');
 
+		expect(execution.$state.executing).toEqual(true);
+
 		user.unlock();
+
+		await waitFor(account, { state: 'Connected' });
+		expect(execution.$state.executing).toEqual(true);
 
 		user.switchChain('11');
 		user.switchChain('12');
 		await waitFor(network, { state: 'Connected' });
 
-		await waitFor(account, { state: 'Connected' });
+		expect(execution.$state.executing).toEqual(true);
+
 		await executionPromise;
+		expect(execution.$state.executing).toEqual(false);
 	});
 });

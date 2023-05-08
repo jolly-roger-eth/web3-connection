@@ -1,4 +1,10 @@
-import type { EIP1193Account, EIP1193Provider, EIP1193Request, EIP1193Response } from 'eip-1193';
+import type {
+	EIP1193Account,
+	EIP1193Provider,
+	EIP1193ProviderWithoutEvents,
+	EIP1193Request,
+	EIP1193Response,
+} from 'eip-1193';
 
 export function initUser() {
 	const emitter = new EventTarget();
@@ -138,4 +144,33 @@ export function initUser() {
 	};
 
 	return user;
+}
+
+export function fakeRPCProvider(chainId: string): EIP1193ProviderWithoutEvents {
+	return {
+		request(request: EIP1193Request): Promise<any> {
+			const promise = new Promise((resolve, reject) => {
+				switch (request.method) {
+					case 'eth_chainId':
+						const chainIdAsHex = `0x${parseInt(chainId).toString(16)}`;
+						return resolve(chainIdAsHex);
+					case 'eth_getBlockByNumber':
+						return resolve({
+							number: '0x01',
+							hash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+							timestamp: `0x${Math.floor(Date.now() / 1000).toString(16)}`,
+						});
+					case 'eth_getBlockByNumber':
+						return resolve({
+							number: '0x01',
+							hash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+							timestamp: `0x${Math.floor(Date.now() / 1000).toString(16)}`,
+						});
+					default:
+						throw new Error(`method ${request.method} not supported`);
+				}
+			});
+			return promise;
+		},
+	};
 }
