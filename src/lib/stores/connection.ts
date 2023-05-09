@@ -550,13 +550,13 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			}
 
 			if (!$state.provider) {
-				logger.error(`no provider anymore, but we are still listening !!!???`);
+				logger.error(`pollAccountsChanged: no provider anymore, but we are still listening !!!???`);
 			}
 			let accounts: `0x${string}`[] = [];
 			try {
 				accounts = await $state.provider.request({ method: 'eth_accounts' });
 			} catch (err) {
-				logger.error(err);
+				logger.error(`failed to fetch accounts`, err);
 			}
 
 			// logger.debug({ accounts }); // TODO remove
@@ -566,6 +566,38 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				} catch (e) {
 					logger.error(e);
 					// TODO error in $connection.error ?
+				}
+			}
+		}
+	}
+
+	async function pollChainChanged(callback: (chainId: `0x${string}`) => void) {
+		while ($state.provider) {
+			await wait(3000); // TODO config
+			if (!listening) {
+				break;
+			}
+
+			if (!$state.provider) {
+				logger.error(`pollChainChanged: no provider anymore, but we are still listening !!!???`);
+			}
+			let chainId: `0x${string}` | undefined;
+			try {
+				chainId = await $state.provider.request({ method: 'eth_chainId' });
+			} catch (err) {
+				logger.error(`failed to get chainId`, err);
+			}
+
+			if (chainId) {
+				const chainIdAsDecimal = formatChainId(chainId);
+				// logger.debug({ accounts }); // TODO remove
+				if (hasChainChanged(chainIdAsDecimal)) {
+					try {
+						callback(chainId);
+					} catch (e) {
+						logger.error(e);
+						// TODO error in $connection.error ?
+					}
 				}
 			}
 		}
@@ -601,10 +633,14 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 			listening = true;
 
-			// still poll has accountsChanged does not seem to be triggered all the time
+			// still poll as accountsChanged does not seem to be triggered all the time
 			// this issue was tested in Metamask back in web3w, // TOCHECK
 			// in Brave this issue happen for lock when invoked first time, see : https://github.com/brave/brave-browser/issues/28688
 			pollAccountsChanged(onAccountsChanged);
+			// still poll as chainChanged does not seem to be triggered all the time
+			// this issue was tested in Metamask back in web3w, // TOCHECK
+			// in Brave this issue happen for lock when invoked first time, see : https://github.com/brave/brave-browser/issues/28688
+			pollChainChanged(onChainChanged);
 		}
 	}
 
