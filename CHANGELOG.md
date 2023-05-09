@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.9
+
+### Patch Changes
+
+- pollChainChanged
+
 ## 0.0.8
 
 ### Patch Changes
