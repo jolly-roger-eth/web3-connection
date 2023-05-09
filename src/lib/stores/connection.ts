@@ -20,6 +20,8 @@ import type {
 	EIP1193Message,
 	EIP1193Provider,
 	EIP1193ProviderRpcError,
+	EIP1193ProviderWithoutEvents,
+	EIP1193Request,
 } from 'eip-1193';
 import { createRPCProvider } from '$lib/provider/rpc';
 import { initEmitter } from '$lib/external/callbacks';
@@ -28,6 +30,33 @@ import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/t
 type Timeout = NodeJS.Timeout;
 
 const logger = logs('web3-connection');
+
+function timeoutRequest<T>(
+	provider: EIP1193ProviderWithoutEvents,
+	request: EIP1193Request,
+	delay = 2
+): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		let timedOut = false;
+		const timeout = setTimeout(async () => {
+			timedOut = true;
+			reject(`request timed out after ${delay} seconds`);
+		}, delay * 1000);
+		const requestPromise = provider.request(request);
+		requestPromise
+			.then((response) => {
+				if (!timedOut) {
+					clearTimeout(timeout);
+					resolve(response as T);
+				}
+			})
+			.catch((err) => {
+				if (!timedOut) {
+					reject(err);
+				}
+			});
+	});
+}
 
 export type ConnectionRequirements =
 	| 'connection' // only connected to perform raw read-only calls, any network
@@ -673,7 +702,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				notSupported: undefined,
 				contracts: undefined,
 			});
-			const chainId = await $state.provider?.request({ method: 'eth_chainId' });
+			const chainId =
+				$state.provider &&
+				(await timeoutRequest<EIP1193ChainId>($state.provider, { method: 'eth_chainId' }));
 			if (chainId) {
 				const chainIdAsDecimal = formatChainId(chainId);
 				setNetwork({
@@ -749,7 +780,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					});
 					throw new Error(message);
 				}
-
+				logger.info(`window.ethereum found, setting up provider...`);
 				set({
 					requireSelection: false,
 					walletType: { type, name: walletName(type) },
@@ -855,7 +886,16 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 			// TODO better naming/flow ?
 			try {
-				await fetchAndSetChainId();
+				logger.info(`getting chainId...`);
+				try {
+					await fetchAndSetChainId();
+				} catch {
+					// we fallback on fetching account
+					logger.info(`falling back on requesting access...`);
+					await timeoutRequest($state.provider, { method: 'eth_requestAccounts' });
+					logger.info(`fetching chainId again...`);
+					await fetchAndSetChainId();
+				}
 			} catch (err) {
 				logger.log(`could not fetch chainId`);
 
@@ -1488,73 +1528,79 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				throw result;
 			}
 		} catch (err) {
-			if ((err as any).code === 4902) {
-				if (config && config.rpcUrls && config.rpcUrls.length > 0) {
-					logger.info(
-						`wallet_switchEthereumChain: could not switch, try adding the chain via "wallet_addEthereumChain"`
-					);
-					try {
-						const result = await $state.provider.request({
-							method: 'wallet_addEthereumChain',
-							params: [
-								{
-									chainId: ('0x' + parseInt(chainId).toString(16)) as EIP1193ChainId,
-									rpcUrls: config.rpcUrls,
-									chainName: config.chainName,
-									blockExplorerUrls: config.blockExplorerUrls,
-									iconUrls: config.iconUrls,
-									nativeCurrency: config.nativeCurrency,
-								},
-							],
-						});
-						if (!result) {
-							// this will be taken care with `chainChanged` (but maybe it should be done there ?)
-							// handleNetwork(chainId);
-						} else {
-							logger.info(
-								`wallet_addEthereumChain: a non-undefinded result means an error`,
-								result
-							);
-							throw result;
-						}
-					} catch (err) {
-						if ((err as any).code !== 4001) {
-							logger.info(`wallet_addEthereumChain: failed`, err);
-							set({
-								error: err as any, // TODO
-							});
-						} else {
-							logger.info(
-								`wallet_addEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
-								err
-							);
-							return;
-						}
-					}
-				} else {
-					logger.info(`cannot call wallet_addEthereumChain as we do not have network details`);
-					set({
-						error: {
-							code: 1, // TODO CHAIN_NOT_AVAILABLE_ON_WALLET,
-							message: 'Chain not available on your wallet',
-						},
+			if ((err as any).code === 4001) {
+				logger.info(
+					`wallet_addEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
+					err
+				);
+				return;
+			}
+			// if ((err as any).code === 4902) {
+			else if (config && config.rpcUrls && config.rpcUrls.length > 0) {
+				logger.info(
+					`wallet_switchEthereumChain: could not switch, try adding the chain via "wallet_addEthereumChain"`
+				);
+				try {
+					const result = await $state.provider.request({
+						method: 'wallet_addEthereumChain',
+						params: [
+							{
+								chainId: ('0x' + parseInt(chainId).toString(16)) as EIP1193ChainId,
+								rpcUrls: config.rpcUrls,
+								chainName: config.chainName,
+								blockExplorerUrls: config.blockExplorerUrls,
+								iconUrls: config.iconUrls,
+								nativeCurrency: config.nativeCurrency,
+							},
+						],
 					});
+					if (!result) {
+						// this will be taken care with `chainChanged` (but maybe it should be done there ?)
+						// handleNetwork(chainId);
+					} else {
+						logger.info(`wallet_addEthereumChain: a non-undefinded result means an error`, result);
+						throw result;
+					}
+				} catch (err) {
+					if ((err as any).code !== 4001) {
+						logger.info(`wallet_addEthereumChain: failed`, err);
+						set({
+							error: err as any, // TODO
+						});
+					} else {
+						logger.info(
+							`wallet_addEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
+							err
+						);
+						return;
+					}
 				}
 			} else {
-				logger.info(`wallet_switchEthereumChain: failed !== 4902`, err);
-				if ((err as any).code !== 4001) {
-					logger.info(`wallet_switchEthereumChain: failed !== 4001`, err);
-					set({
-						error: err as any, // TODO
-					});
-				} else {
-					logger.info(
-						`wallet_switchEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
-						err
-					);
-					return;
-				}
+				logger.info(`cannot call wallet_addEthereumChain as we do not have network details`);
+				set({
+					error: {
+						code: 1, // TODO CHAIN_NOT_AVAILABLE_ON_WALLET,
+						message: `Chain "${
+							config?.chainName || `with chainId = ${chainId}`
+						} " is not available on your wallet.`,
+					},
+				});
 			}
+			// } else {
+			// 	logger.info(`wallet_switchEthereumChain: failed !== 4902`, err);
+			// 	if ((err as any).code !== 4001) {
+			// 		logger.info(`wallet_switchEthereumChain: failed !== 4001`, err);
+			// 		set({
+			// 			error: err as any, // TODO
+			// 		});
+			// 	} else {
+			// 		logger.info(
+			// 			`wallet_switchEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
+			// 			err
+			// 		);
+			// 		return;
+			// 	}
+			// }
 		}
 	}
 
@@ -1564,6 +1610,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			const delay = 2;
 			timeout = setTimeout(async () => {
 				logger.info(`attempt to reuse previous wallet timed out after ${delay} seconds.`);
+				await disconnect();
 				// set({
 				// 	initialised: true,
 				// 	error: {
