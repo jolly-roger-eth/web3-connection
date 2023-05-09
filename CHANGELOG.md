@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.10
+
+### Patch Changes
+
+- fix metamask network issue with timeout
+
 ## 0.0.9
 
 ### Patch Changes
