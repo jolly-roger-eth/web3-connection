@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.11
+
+### Patch Changes
+
+- types for web3-connection provider
+
 ## 0.0.10
 
 ### Patch Changes

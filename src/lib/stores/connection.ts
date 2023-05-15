@@ -4,12 +4,8 @@ import { createBuiltinStore } from './builtin';
 import { logs } from 'named-logs';
 import { wait } from '$lib/utils/time';
 import { formatChainId } from '$lib/utils/ethereum';
-import {
-	multiObersvers,
-	wrapProvider,
-	type EIP1193Observers,
-	type WrappedProvider,
-} from '$lib/provider/wrap';
+import { multiObersvers, wrapProvider } from '$lib/provider/wrap';
+import type { EIP1193Observers, Web3ConnectionProvider } from '$lib/provider/types';
 import { createPendingActionsStore } from './pending-actions';
 import { createManageablePromise, createManageablePromiseWithId } from '$lib/utils/promises';
 import { getContractInfos } from '$lib/utils/contracts';
@@ -101,7 +97,7 @@ export type ConnectedState = BaseConnectionState & {
 	requireSelection: false;
 	loadingModule: false;
 	walletType: { type: string; name?: string };
-	provider: EIP1193Provider;
+	provider: Web3ConnectionProvider;
 };
 
 export type DisconnectedState = BaseConnectionState & {
@@ -111,7 +107,7 @@ export type DisconnectedState = BaseConnectionState & {
 	requireSelection: boolean;
 	loadingModule: boolean;
 	walletType?: { type: string; name?: string };
-	provider?: EIP1193Provider;
+	provider?: Web3ConnectionProvider;
 };
 
 export type ConnectionState = ConnectedState | DisconnectedState;
@@ -441,8 +437,10 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		? multiObersvers([config.observers, observersForPendingActions])
 		: observersForPendingActions;
 
-	let single_provider: WrappedProvider | undefined;
-	function createProvider(ethereum: EIP1193ProviderWithBlocknumberSubscription): WrappedProvider {
+	let single_provider: Web3ConnectionProvider | undefined;
+	function createProvider(
+		ethereum: EIP1193ProviderWithBlocknumberSubscription
+	): Web3ConnectionProvider {
 		let old_provider: EIP1193ProviderWithBlocknumberSubscription | undefined;
 		if (!single_provider) {
 			single_provider = wrapProvider(ethereum, observers);

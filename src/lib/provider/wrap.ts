@@ -1,35 +1,12 @@
 import type { EIP1193Block, EIP1193Provider, EIP1193Request } from 'eip-1193';
-import { createBlockPoller, createSubscriptionHandler } from './subscriptions';
-import type { EIP1193TransactionData } from 'eip-1193';
-import type { EIP1193ProviderWithBlocknumberSubscription } from './types';
-
-export type EIP1193TransactionRequestWithMetadata = {
-	readonly method: 'eth_sendTransaction';
-	params: [EIP1193TransactionData, any];
-};
-
-export type Metadata = unknown; // TODO have some mandatory field like id ? or maybe at least be an object ?
-
-export type EIP1193TransactionWithMetadata = EIP1193TransactionData & {
-	timestamp: number;
-	metadata?: Metadata;
-};
-
-export type SignatureRequestWithMetadata = {
-	from: string;
-	message: unknown;
-	timestamp: number;
-	metadata?: Metadata;
-};
-
-export interface EIP1193Observers {
-	onTxRequested?: (tx: EIP1193TransactionWithMetadata) => void;
-	onTxCancelled?: (tx: EIP1193TransactionWithMetadata) => void;
-	onTxSent?: (tx: EIP1193TransactionWithMetadata, hash: string) => void;
-	onSignatureRequest?: (request: SignatureRequestWithMetadata) => void;
-	onSignatureCancelled?: (request: SignatureRequestWithMetadata) => void;
-	onSignatureResponse?: (request: SignatureRequestWithMetadata, signature: string) => void;
-}
+import type {
+	EIP1193Observers,
+	EIP1193TransactionRequestWithMetadata,
+	EIP1193TransactionWithMetadata,
+	Metadata,
+	SignatureRequestWithMetadata,
+	Web3ConnectionProvider,
+} from './types';
 
 export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Observers {
 	return {
@@ -78,23 +55,10 @@ export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Obse
 	};
 }
 
-export type ObservableProvider = EIP1193ProviderWithBlocknumberSubscription & {
-	setObservers(observers: EIP1193Observers): void;
-	unsetObservers(): void;
-};
-
-export type WrappedProvider = ObservableProvider & {
-	setNextMetadata(metadata: any): void;
-	__web3_connection_: true;
-	currentTime(): number;
-	underlyingProvider: EIP1193ProviderWithBlocknumberSubscription;
-	setUnderlyingProvider(ethereum: EIP1193ProviderWithBlocknumberSubscription): void;
-};
-
 export function wrapProvider(
 	providerToWrap: EIP1193Provider,
 	observers: EIP1193Observers
-): WrappedProvider {
+): Web3ConnectionProvider {
 	let _syncTime: number | undefined;
 
 	function currentTime() {
@@ -108,10 +72,10 @@ export function wrapProvider(
 
 	let currentObservers: EIP1193Observers | undefined = observers;
 	if ((providerToWrap as any).__web3_connection__) {
-		const wrappedProvider: WrappedProvider = providerToWrap as WrappedProvider;
+		const wrappedProvider: Web3ConnectionProvider = providerToWrap as Web3ConnectionProvider;
 		// do not rewrap if already an 1193 Proxy, but set the new observers
 		wrappedProvider.setObservers(observers);
-		return providerToWrap as WrappedProvider;
+		return providerToWrap as Web3ConnectionProvider;
 	}
 
 	let ethereum = providerToWrap;
@@ -408,5 +372,5 @@ export function wrapProvider(
 				return (ethereum as any)[property];
 			},
 		}
-	) as unknown as WrappedProvider;
+	) as unknown as Web3ConnectionProvider;
 }
