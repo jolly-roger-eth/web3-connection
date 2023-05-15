@@ -22,6 +22,7 @@ import type {
 import { createRPCProvider } from '$lib/provider/rpc';
 import { initEmitter } from '$lib/external/callbacks';
 import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/types';
+import { checkGenesis } from '$lib/utils/chain';
 
 type Timeout = NodeJS.Timeout;
 
@@ -119,6 +120,8 @@ export type NetworkState<NetworkConfig extends GenericNetworkConfig> =
 
 type BaseNetworkState = {
 	error?: ConnectionError;
+	genesisHash?: string;
+	genesisChanged?: boolean;
 };
 
 export type DisconectedNetworkState = BaseNetworkState & {
@@ -219,6 +222,7 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 		unload: () => Promise<void>;
 	};
 	observers?: EIP1193Observers;
+	checkGenesis?: boolean;
 };
 
 export function init<NetworkConfig extends GenericNetworkConfig>(
@@ -519,6 +523,18 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	async function handleNetwork(chainId: string) {
 		try {
+			if (!single_provider) {
+				throw new Error(`no provider setup`);
+			}
+			if (config.checkGenesis) {
+				const genesis = await checkGenesis(single_provider, chainId);
+				if (genesis) {
+					setNetwork({
+						genesisChanged: genesis.changed,
+						genesisHash: genesis.hash,
+					});
+				}
+			}
 			if (!config.networks) {
 				setNetwork({
 					state: 'Connected',
@@ -1681,6 +1697,20 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		network: {
 			...readableNetwork,
 			switchTo,
+			acknowledgeNewGenesis() {
+				const chainId = $network.chainId;
+				if (chainId) {
+					if ($network.genesisHash) {
+						const lkey = `_genesis_${chainId}`;
+						localStorage.setItem(lkey, $network.genesisHash);
+						setNetwork({ genesisChanged: false });
+					} else {
+						throw new Error(`no genesisHash for chainId: ${chainId}`);
+					}
+				} else {
+					throw new Error(`no chainId`);
+				}
+			},
 		},
 		account: {
 			...readableAccount,
