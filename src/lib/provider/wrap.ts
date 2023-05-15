@@ -8,6 +8,9 @@ import type {
 	Web3ConnectionProvider,
 } from './types';
 
+import { logs } from 'named-logs';
+const logger = logs('web3-connection:provider');
+
 export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Observers {
 	return {
 		onTxRequested: (tx: EIP1193TransactionWithMetadata) => {
@@ -94,16 +97,7 @@ export function wrapProvider(
 		message: unknown, // TODO type ?
 		metadata?: any
 	) {
-		if (!metadata) {
-			if (nextMetadata) {
-				metadata = nextMetadata;
-				nextMetadata = undefined;
-			}
-		} else if (nextMetadata) {
-			throw new Error(
-				`conflicting metadata, metadata was set via "setNextMetadata" but it was also provided as part of the request data`
-			);
-		}
+		metadata = getMetadata(metadata);
 
 		let messageWithMetadata = { from, message, metadata, timestamp: currentTime() };
 
@@ -130,15 +124,22 @@ export function wrapProvider(
 	function getMetadata(metadataArg: Metadata): Metadata {
 		let metadata = metadataArg;
 		if (!metadata) {
+			logger.info(`no metadata in request...`);
 			if (nextMetadata) {
 				metadata = nextMetadata;
 				nextMetadata = undefined;
+				if (metadata) {
+					logger.info(`metadata found`, JSON.stringify(metadata, null, 2));
+				} else {
+					logger.info(`metadata not found`);
+				}
 			}
 		} else if (nextMetadata) {
 			throw new Error(
 				`conflicting metadata, metadata was set via "setNextMetadata" but it was also provided as part of the request data`
 			);
 		}
+
 		return metadata;
 	}
 
@@ -246,6 +247,8 @@ export function wrapProvider(
 			const performanceNow = performance.now();
 			_syncTime = blockTimeInMs - performanceNow;
 		}
+
+		logger.info(`sending request: ${args.method}`);
 
 		switch (args.method) {
 			case 'eth_sendTransaction':
