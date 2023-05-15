@@ -330,6 +330,7 @@ export function wrapProvider(
 		if (nextMetadata) {
 			throw new Error(`previous metadata was not consumed. Please resolve the issue.`);
 		}
+		nextMetadata = metadata;
 	}
 
 	function setObservers(observers: EIP1193Observers) {
