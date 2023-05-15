@@ -222,7 +222,7 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 		unload: () => Promise<void>;
 	};
 	observers?: EIP1193Observers;
-	checkGenesis?: boolean;
+	checkGenesis?: boolean | string;
 };
 
 export function init<NetworkConfig extends GenericNetworkConfig>(
@@ -527,7 +527,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				throw new Error(`no provider setup`);
 			}
 			if (config.checkGenesis) {
-				const genesis = await checkGenesis(single_provider, chainId);
+				const genesis = await checkGenesis(
+					typeof config.checkGenesis === 'boolean' ? single_provider : config.checkGenesis,
+					chainId
+				);
+
 				if (genesis) {
 					setNetwork({
 						genesisChanged: genesis.changed,
