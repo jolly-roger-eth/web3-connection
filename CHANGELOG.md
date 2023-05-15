@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.12
+
+### Patch Changes
+
+- fix metadata + add logs
+
 ## 0.0.11
 
 ### Patch Changes
