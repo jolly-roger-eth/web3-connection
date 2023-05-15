@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.15
+
+### Patch Changes
+
+- better handling erro and genesis hash
+
 ## 0.0.14
 
 ### Patch Changes
