@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.14
+
+### Patch Changes
+
+- allow the use of url to check genesis
+
 ## 0.0.13
 
 ### Patch Changes
