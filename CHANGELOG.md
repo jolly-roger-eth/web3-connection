@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.13
+
+### Patch Changes
+
+- add genesis check
+
 ## 0.0.12
 
 ### Patch Changes
