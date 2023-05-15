@@ -83,11 +83,16 @@ export type NetworkConfigs<N extends GenericNetworkConfig> =
 	| N
 	| ((chainId: string) => Promise<N | MultiNetworkConfigs<N>>);
 
-export type ConnectionError = { title?: string; message: string; code: number };
+export type Web3ConnectionError = {
+	title?: string;
+	message: string;
+	id?: string;
+	cause?: any;
+};
 
 type BaseConnectionState = {
 	// executionRequireUserConfirmation?: boolean;
-	error?: ConnectionError;
+	error?: Web3ConnectionError;
 	toJSON?(): Partial<ConnectionState>;
 };
 
@@ -119,7 +124,7 @@ export type NetworkState<NetworkConfig extends GenericNetworkConfig> =
 	| ConnectedNetworkState<NetworkConfig>;
 
 type BaseNetworkState = {
-	error?: ConnectionError;
+	error?: Web3ConnectionError;
 	genesisHash?: string;
 	genesisChanged?: boolean;
 };
@@ -152,7 +157,7 @@ export type ConnectedNetworkState<NetworkConfig extends GenericNetworkConfig> = 
 };
 
 type BaseAccountState = {
-	error?: ConnectionError;
+	error?: Web3ConnectionError;
 };
 
 export type AccountState = ConnectedAccountState | DisconnectedAccountState;
@@ -192,7 +197,7 @@ export type ExecuteCallback<NetworkConfig extends GenericNetworkConfig, T> = (
 export type ExecutionState = {
 	executing: boolean;
 	requireUserConfirmation?: boolean;
-	error?: ConnectionError;
+	error?: Web3ConnectionError;
 };
 
 export type Parameters = {
@@ -528,8 +533,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			}
 			if (config.checkGenesis) {
 				const genesis = await checkGenesis(
-					typeof config.checkGenesis === 'boolean' ? single_provider : config.checkGenesis,
-					chainId
+					single_provider,
+					chainId,
+					typeof config.checkGenesis === 'string' ? config.checkGenesis : undefined
 				);
 
 				if (genesis) {
@@ -794,7 +800,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					const message = `no window.ethereum found!`;
 					set({
 						connecting: false,
-						error: { message, code: 1 }, // TODO code
+						error: { message },
 					});
 					throw new Error(message);
 				}
@@ -825,7 +831,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					const message = `no module found: ${type}`;
 					set({
 						connecting: false,
-						error: { message, code: 1 }, // TODO code
+						error: { message },
 					});
 					throw new Error(message);
 				}
@@ -895,7 +901,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				const message = `no wallet found for wallet type ${type}`;
 				set({
 					connecting: false,
-					error: { message, code: 1 }, // TODO code
+					error: { message }, // TODO code
 				});
 				throw new Error(message);
 			}
@@ -917,7 +923,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			} catch (err) {
 				logger.log(`could not fetch chainId`);
 
-				const error = { message: `could not fetch chainId`, code: 1, cause: err };
+				const error = { message: `could not fetch chainId`, cause: err };
 				// cannot fetch chainId, this means we are not connected
 				set({
 					connecting: false,
@@ -1183,9 +1189,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			logger.info(`accounts: ${accounts}`);
 			// }
 		} catch (err) {
-			const errWithCode = err as { code: number; message: string };
 			set({
-				error: errWithCode, // TODO remove $account.error and $network.error ?
+				error: { message: 'failed to fetch accounts', cause: err }, // TODO remove $account.error and $network.error ?
 			});
 			_connect.reject(['connection+account', 'connection+network+account'], err);
 			throw err;
@@ -1379,7 +1384,6 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 							set({
 								error: {
 									message: `To unlock your wallet, please click on the Metamask add-on's icon and unlock from there.`,
-									code: 10000,
 								},
 							});
 							// we ignore the error
@@ -1397,7 +1401,6 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 							set({
 								error: {
 									message: `To unlock your wallet, please click on the Brave wallet's icon and unlock from there.`,
-									code: 1000,
 								},
 							});
 							// we ignore the error
@@ -1597,7 +1600,6 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				logger.info(`cannot call wallet_addEthereumChain as we do not have network details`);
 				set({
 					error: {
-						code: 1, // TODO CHAIN_NOT_AVAILABLE_ON_WALLET,
 						message: `Chain "${
 							config?.chainName || `with chainId = ${chainId}`
 						} " is not available on your wallet.`,
@@ -1701,19 +1703,53 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		network: {
 			...readableNetwork,
 			switchTo,
-			acknowledgeNewGenesis() {
+			async acknowledgeNewGenesis() {
 				const chainId = $network.chainId;
-				if (chainId) {
-					if ($network.genesisHash) {
-						const lkey = `_genesis_${chainId}`;
-						localStorage.setItem(lkey, $network.genesisHash);
-						setNetwork({ genesisChanged: false });
-					} else {
-						throw new Error(`no genesisHash for chainId: ${chainId}`);
-					}
-				} else {
-					throw new Error(`no chainId`);
+				if (!chainId) {
+					const message = `no chainId`;
+					set({
+						error: {
+							message,
+						},
+					});
+					throw new Error(message);
 				}
+				if (!single_provider) {
+					const message = `no provider setup`;
+					set({
+						error: {
+							message,
+						},
+					});
+					throw new Error(message);
+				}
+				if (!$network.genesisHash) {
+					const message = `no genesisHash for chainId: ${chainId}`;
+					set({
+						// TODO remove code and use id string
+						error: {
+							message,
+						},
+					});
+					throw new Error(message);
+				}
+				const genesis = await single_provider.request({
+					method: 'eth_getBlockByNumber',
+					params: ['earliest', false],
+				});
+				if (genesis.hash !== $network.genesisHash) {
+					const message = `genesis hash not matching, please ensure Metamask is reset properly`;
+					set({
+						// TODO remove code and use id string
+						error: {
+							message,
+						},
+					});
+					throw new Error(message);
+				}
+				const lkey = `_genesis_${chainId}`;
+				localStorage.setItem(lkey, $network.genesisHash);
+				setNetwork({ genesisChanged: false });
 			},
 		},
 		account: {
