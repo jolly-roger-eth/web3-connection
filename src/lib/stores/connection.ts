@@ -522,7 +522,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						state: 'Disconnected',
 						loadingData: undefined,
 						loadingStep: undefined,
-						error: err as any,
+						error: { message: `failed to handle network/account change`, cause: err },
 					}); // TODO any
 					_connect.resolve(['connection+account', 'connection+network+account'], false);
 				}
@@ -823,6 +823,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				notSupported: undefined,
 				contracts: undefined,
 			});
+			set({
+				error: { message: 'failed to fetch chainId', cause: err },
+			});
 			throw err;
 		}
 	}
@@ -1042,7 +1045,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				loadingModule: false,
 				walletType: $state.walletType,
 				provider: $state.provider,
-				error: (err as any).message || err,
+				error: { message: `failed to select wallet ${type ? `of type ${type}` : ''}`, cause: err },
 			});
 			throw err;
 		}
@@ -1178,7 +1181,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 									// locked: false,
 									loadingData: undefined,
 									loadingStep: undefined,
-									error: err as any, // {error, code, cause}
+									error: { message: `failed to load account ${address}`, cause: err },
 								});
 								// not sure if we should resolve to false here,
 								// TODO let user retry load account
@@ -1220,7 +1223,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						address,
 						loadingData: undefined,
 						loadingStep: undefined,
-						error: err as any, // TODO {error, code, message, cause}
+						error: { message: `failed to handle account (${address})`, cause: err },
 					});
 					// do not resolve to false here
 					// _connect.resolve(['connection+account', 'connection+network+account'], false);
@@ -1669,7 +1672,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					if ((err as any).code !== 4001) {
 						logger.info(`wallet_addEthereumChain: failed`, err);
 						set({
-							error: err as any, // TODO
+							error: { message: `Failed to add new chain`, cause: err },
 						});
 					} else {
 						logger.info(
