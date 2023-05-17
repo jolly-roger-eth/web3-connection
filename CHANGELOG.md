@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.16
+
+### Patch Changes
+
+- isNonceCached check
+
 ## 0.0.15
 
 ### Patch Changes
