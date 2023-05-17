@@ -5,90 +5,16 @@ const logger = logs('web3-connection:chains');
 
 export async function checkGenesis(
 	provider: EIP1193ProviderWithoutEvents,
-	chainId: string,
-	rpcURL?: string
-): Promise<{ changed: boolean; hash: string } | undefined> {
-	let networkChanged = undefined;
-	try {
-		const lkey = `_genesis_${chainId}`;
-		let genesisBlock: EIP1193Block | undefined;
-
-		// we fetch from the provider
-		// this might cache it
-		const genesisBlockFromProvider = await provider.request({
-			method: 'eth_getBlockByNumber',
-			params: [`earliest`, false],
-		});
-		if (rpcURL) {
-			// if we provide an url, we also fetch from there
-			const response = await fetch(rpcURL, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					id: Date.now(),
-					jsonrpc: '2.0',
-					method: 'eth_getBlockByNumber',
-					params: [`earliest`, false],
-				}),
-			}).then((response) => response.json());
-			// and use the result
-			genesisBlock = response.result;
-
-			if (genesisBlock && genesisBlockFromProvider.hash !== genesisBlock.hash) {
-				console.error(
-					`different genesis returned from the provider: it has cached the result and need to be reset`
-				);
-			}
-		} else {
-			genesisBlock = genesisBlockFromProvider;
-		}
-
-		if (genesisBlock) {
-			const lastHash = localStorage.getItem(lkey);
-			if (lastHash !== genesisBlock.hash) {
-				if (lastHash) {
-					networkChanged = true;
-				} else {
-					networkChanged = false;
-					localStorage.setItem(lkey, genesisBlock.hash);
-				}
-			} else {
-				networkChanged = false;
-			}
-			return { changed: networkChanged, hash: genesisBlock.hash };
-		}
-		return undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-export async function isNonceCached(
-	address: `0x${string}`,
-	provider: EIP1193ProviderWithoutEvents,
 	rpcURL: string
-) {
-	// we fetch nonce from different address format due to https://github.com/MetaMask/metamask-extension/issues/19183
-	const nonceFromProviderLowerCase = await provider
-		.request({
-			method: 'eth_getTransactionCount',
-			params: [address.toLowerCase() as `0x${string}`, 'pending'],
-		})
-		.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
-	const nonceFromProviderUpperCase = await provider
-		.request({
-			method: 'eth_getTransactionCount',
-			params: [(`0x` + address.slice(2).toUpperCase()) as `0x${string}`, 'pending'],
-		})
-		.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
-
-	logger.info({
-		nonceFromProviderLowerCase,
-		nonceFromProviderUpperCase,
+): Promise<{ matching: boolean; hash: string }> {
+	// we fetch from the provider
+	// this might cache it
+	const genesisBlockFromProvider = await provider.request({
+		method: 'eth_getBlockByNumber',
+		params: [`earliest`, false],
 	});
-	const nonceFromNode = await fetch(rpcURL, {
+	// we then fetch from node to compare with
+	const genesisBlockFromNode = await fetch(rpcURL, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -96,14 +22,119 @@ export async function isNonceCached(
 		body: JSON.stringify({
 			id: Date.now(),
 			jsonrpc: '2.0',
-			method: 'eth_getTransactionCount',
-			params: [address, 'pending'],
+			method: 'eth_getBlockByNumber',
+			params: [`earliest`, false],
 		}),
 	})
 		.then((response) => response.json())
-		.then((response) => (response.result ? parseInt(response.result.slice(2), 16) : null));
-	return (
-		nonceFromNode !== null &&
-		(nonceFromNode < nonceFromProviderUpperCase || nonceFromNode < nonceFromProviderLowerCase)
-	);
+		.then((response) => response.result);
+
+	const matching = genesisBlockFromProvider.hash === genesisBlockFromNode.hash;
+	if (!matching) {
+		console.error(
+			`different genesis returned from the provider: it most likely has cached the result and need to be reset`
+		);
+	}
+
+	return { matching, hash: genesisBlockFromNode.hash };
+}
+
+export type NonceCachedStatus = 'cache' | 'BlockOutOfRangeError' | false;
+
+export async function isNonceCached(
+	address: `0x${string}`,
+	provider: EIP1193ProviderWithoutEvents,
+	rpcURL: string
+): Promise<NonceCachedStatus | undefined> {
+	let nonceFromProviderLowerCase: number | undefined;
+	try {
+		// we fetch nonce from different address format due to https://github.com/MetaMask/metamask-extension/issues/19183
+		nonceFromProviderLowerCase = await provider
+			.request({
+				method: 'eth_getTransactionCount',
+				params: [address.toLowerCase() as `0x${string}`, 'pending'],
+			})
+			.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
+	} catch (err: any) {
+		if (err.code === -32603 && err.message.indexOf('BlockOutOfRangeError') >= 0) {
+			return 'BlockOutOfRangeError';
+		}
+		console.error(`failed to get lowercase account's nonce from provider`, err);
+	}
+	let nonceFromProvider: number | undefined;
+	try {
+		nonceFromProvider = await provider
+			.request({
+				method: 'eth_getTransactionCount',
+				params: [address, 'pending'],
+			})
+			.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
+	} catch (err: any) {
+		if (err.code === -32603 && err.message.indexOf('BlockOutOfRangeError') >= 0) {
+			return 'BlockOutOfRangeError';
+		}
+		console.error(`failed to get account's nonce from provider`, err);
+	}
+
+	let nonceFromNode: number | undefined;
+	try {
+		nonceFromNode = await fetch(rpcURL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				id: Date.now(),
+				jsonrpc: '2.0',
+				method: 'eth_getTransactionCount',
+				params: [address, 'pending'],
+			}),
+		})
+			.then((response) => response.json())
+			.then((response) => (response.result ? parseInt(response.result.slice(2), 16) : undefined));
+	} catch (err) {
+		console.error(`failed to get account's nonce from node: ${rpcURL}`, err);
+	}
+
+	logger.info({
+		nonceFromNode,
+		nonceFromProviderLowerCase,
+		nonceFromProvider,
+	});
+
+	if (
+		nonceFromNode === undefined ||
+		nonceFromProvider === undefined ||
+		nonceFromProviderLowerCase === undefined
+	) {
+		return undefined;
+	}
+
+	return nonceFromNode < nonceFromProvider || nonceFromNode < nonceFromProviderLowerCase
+		? 'cache'
+		: false;
+}
+
+export function hasTrackedGenesisChanged(chainId: string, genesisHash: string): boolean {
+	try {
+		const key = `_genesis_${chainId}`;
+		const previous = localStorage.getItem(key);
+		if (previous) {
+			if (previous !== genesisHash) {
+				console.warn(`network reset detected`);
+				return true;
+			}
+		} else {
+			localStorage.setItem(key, genesisHash);
+		}
+	} catch {}
+	return false;
+}
+
+export function recordNewGenesis(chainId: string, genesisHash: string): boolean {
+	try {
+		const key = `_genesis_${chainId}`;
+		localStorage.setItem(key, genesisHash);
+	} catch {}
+	return false;
 }
