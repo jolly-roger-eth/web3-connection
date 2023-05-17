@@ -22,7 +22,7 @@ import type {
 import { createRPCProvider } from '$lib/provider/rpc';
 import { initEmitter } from '$lib/external/callbacks';
 import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/types';
-import { checkGenesis } from '$lib/utils/chain';
+import { checkGenesis, isNonceCached } from '$lib/utils/chain';
 
 type Timeout = NodeJS.Timeout;
 
@@ -125,6 +125,7 @@ export type NetworkState<NetworkConfig extends GenericNetworkConfig> =
 
 type BaseNetworkState = {
 	error?: Web3ConnectionError;
+	nonceCached?: boolean;
 	genesisHash?: string;
 	genesisChanged?: boolean;
 };
@@ -532,6 +533,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				throw new Error(`no provider setup`);
 			}
 			if (config.checkGenesis) {
+				logger.info(`checking genesis...`);
 				const genesis = await checkGenesis(
 					single_provider,
 					chainId,
@@ -997,6 +999,20 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		const chainId = newChainId || $network.chainId;
 		// let counter = ++accountUpdateCounter;
 		if (address) {
+			if (typeof config.checkGenesis === 'string') {
+				if (!single_provider) {
+					throw new Error(`no provider`);
+				}
+				logger.info(`checking nonce...`);
+				const nonceCached = await isNonceCached(address, single_provider, config.checkGenesis);
+
+				if (nonceCached) {
+					console.error(`nonce not matching, your provider is caching wrong info`);
+				}
+
+				setNetwork({ nonceCached });
+			}
+
 			if (config.acccountData) {
 				try {
 					if (
@@ -1737,8 +1753,25 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					method: 'eth_getBlockByNumber',
 					params: ['earliest', false],
 				});
+				if ($account.address && typeof config.checkGenesis === 'string') {
+					const nonceCached = await isNonceCached(
+						$account.address,
+						single_provider,
+						config.checkGenesis
+					);
+					if (nonceCached) {
+						const message = `nonce is still cached, please ensure Metamask is reset properly`;
+						set({
+							// TODO remove code and use id string
+							error: {
+								message,
+							},
+						});
+						throw new Error(message);
+					}
+				}
 				if (genesis.hash !== $network.genesisHash) {
-					const message = `genesis hash not matching, please ensure Metamask is reset properly`;
+					const message = `genesis hash still not matching, please ensure Metamask is reset properly`;
 					set({
 						// TODO remove code and use id string
 						error: {

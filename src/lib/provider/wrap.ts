@@ -253,6 +253,29 @@ export function wrapProvider(
 		switch (args.method) {
 			case 'eth_sendTransaction':
 				const tx = args.params[0];
+
+				// // TODO if metamask and chainId == 31337/1337
+				// if (!tx.nonce) {
+				// 	logger.info(`we force fetch pending nonce`);
+				// this actually does not work as metamask will still use the cached nonce
+				// 	const forcedPendingNonce = await _request({
+				// 		method: 'eth_getTransactionCount',
+				// 		params: [(`0x` + tx.from.slice(2).toUpperCase()) as `0x${string}`, 'pending'],
+				// 	});
+				// 	const pendingNonce = forcedPendingNonce;
+				// 	// const pendingNonce = await _request({
+				// 	// 	method: 'eth_getTransactionCount',
+				// 	// 	params: [tx.from, 'pending'],
+				// 	// });
+				// 	// bug in metamask where it return a number instead of a 0x string
+				// 	tx.nonce = (
+				// 		typeof pendingNonce === 'string'
+				// 			? pendingNonce
+				// 			: '0x' + (pendingNonce as number).toString(16)
+				// 	) as `0x${string}`;
+
+				// 	logger.info(`tx.nonce = ${tx.nonce}`);
+				// }
 				const metadata = getMetadata(
 					(args as unknown as EIP1193TransactionRequestWithMetadata).params[1]
 				);
