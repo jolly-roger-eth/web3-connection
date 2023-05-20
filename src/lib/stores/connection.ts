@@ -412,6 +412,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					timer_lastChainId = $network.chainId;
 					timer_lastBlockNumber = blockNumber;
 					timer_lastBlockTime = blockTimestamp;
+
+					single_provider?.syncTime(blockTimestamp);
 					emitter.emit(blockNumber);
 				}
 			}

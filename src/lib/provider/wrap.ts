@@ -112,14 +112,21 @@ export function wrapProvider(
 		return newBlock;
 	}
 
-	async function syncTime() {
-		const latestBlock = await _request<EIP1193Block>({
-			method: 'eth_getBlockByNumber',
-			params: ['latest', false],
-		});
-		const blockTimeInMs = parseInt(latestBlock.timestamp.slice(2), 16) * 1000;
+	async function syncTime(latestBlockTime?: number | EIP1193Block) {
+		if (!latestBlockTime) {
+			const latestBlock = await _request<EIP1193Block>({
+				method: 'eth_getBlockByNumber',
+				params: ['latest', false],
+			});
+			const blockTime = parseInt(latestBlock.timestamp.slice(2), 16);
+			latestBlockTime = blockTime;
+		} else if (typeof latestBlockTime !== 'number') {
+			const blockTime = parseInt(latestBlockTime.timestamp.slice(2), 16);
+			latestBlockTime = blockTime;
+		}
+
 		const localTimestamp = Date.now();
-		const discrepancy = localTimestamp - blockTimeInMs;
+		const discrepancy = localTimestamp - latestBlockTime * 1000;
 		if (errorOnTimeDifference) {
 			if (Math.abs(discrepancy) > errorOnTimeDifference.threshold) {
 				const hours = Math.floor(discrepancy / 3_600_000);
@@ -137,7 +144,7 @@ export function wrapProvider(
 		}
 
 		const performanceNow = performance.now();
-		_syncTime = blockTimeInMs - performanceNow;
+		_syncTime = latestBlockTime * 1000 - performanceNow;
 
 		return currentTime();
 	}
@@ -305,6 +312,18 @@ export function wrapProvider(
 		logger.info(`sending request: ${args.method}`);
 
 		switch (args.method) {
+			case 'eth_getBlockByNumber':
+				const blockByNumber = await _request(args);
+				if (args.params[0] === 'latest') {
+					syncTime(blockByNumber as EIP1193Block);
+				}
+				return blockByNumber;
+			// case 'eth_blockNumber':
+			// 	const result = await _request(args);
+			// 	if (args.params[0] === 'latest') {
+			// 		syncTime(result as EIP1193Block);
+			// 	}
+			// 	return result;
 			case 'eth_sendTransaction':
 				const tx = args.params[0];
 
