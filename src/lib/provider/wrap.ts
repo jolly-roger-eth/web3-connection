@@ -125,8 +125,8 @@ export function wrapProvider(
 				const hours = Math.floor(discrepancy / 3_600_000);
 				const message =
 					(discrepancy < 0
-						? `Node is ${-hours} ahead of your machine's clock.`
-						: `Node is ${hours} behind of your machine's clock.`) +
+						? `Node is ${-hours} hours ahead of your machine's clock.`
+						: `Node is ${hours} hours behind of your machine's clock.`) +
 					`The client cannot know which one is more correct. Please ensure your node is synced and that your local clock is correct`;
 				if (errorOnTimeDifference.onlyLog) {
 					console.error(message);
