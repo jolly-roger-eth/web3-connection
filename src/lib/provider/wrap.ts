@@ -73,6 +73,47 @@ export function wrapProvider(
 		return Math.floor((performance.now() + _syncTime) / 1000);
 	}
 
+	async function waitNewBlock() {
+		const latestBlock = await _request<EIP1193Block>({
+			method: 'eth_getBlockByNumber',
+			params: ['latest', false],
+		});
+
+		let newBlock = await _request<EIP1193Block>({
+			method: 'eth_getBlockByNumber',
+			params: ['latest', false],
+		});
+
+		while (newBlock.number <= latestBlock.number) {
+			newBlock = await _request<EIP1193Block>({
+				method: 'eth_getBlockByNumber',
+				params: ['latest', false],
+			});
+		}
+		return newBlock;
+	}
+
+	async function syncTime() {
+		const latestBlock = await _request<EIP1193Block>({
+			method: 'eth_getBlockByNumber',
+			params: ['latest', false],
+		});
+		const blockTimeInMs = parseInt(latestBlock.timestamp.slice(2), 16) * 1000;
+		const localTimestamp = Date.now();
+		const discrepancy = localTimestamp - blockTimeInMs;
+		if (Math.abs(discrepancy) > 3_600_000) {
+			throw new Error(
+				`${Math.floor(
+					discrepancy / 3_600_000
+				)} hours of discrepancy between local time and the node time. The client cannot know which one is more correct. Please ensure your node is synced and that your local clock is correct`
+			);
+		}
+		const performanceNow = performance.now();
+		_syncTime = blockTimeInMs - performanceNow;
+
+		return currentTime();
+	}
+
 	let currentObservers: EIP1193Observers | undefined = observers;
 	if ((providerToWrap as any).__web3_connection__) {
 		const wrappedProvider: Web3ConnectionProvider = providerToWrap as Web3ConnectionProvider;
@@ -99,7 +140,7 @@ export function wrapProvider(
 	) {
 		metadata = getMetadata(metadata);
 
-		let messageWithMetadata = { from, message, metadata, timestamp: currentTime() };
+		let messageWithMetadata = { from, message, metadata, timestamp: await syncTime() };
 
 		if (currentObservers?.onSignatureRequest) {
 			currentObservers?.onSignatureRequest(messageWithMetadata);
@@ -230,22 +271,7 @@ export function wrapProvider(
 
 	async function request(args: EIP1193Request) {
 		if (!_syncTime) {
-			const latestBlock = await _request<EIP1193Block>({
-				method: 'eth_getBlockByNumber',
-				params: ['latest', false],
-			});
-			const blockTimeInMs = parseInt(latestBlock.timestamp.slice(2), 16) * 1000;
-			const localTimestamp = Date.now();
-			const discrepancy = localTimestamp - blockTimeInMs;
-			if (Math.abs(discrepancy) > 3_600_000) {
-				throw new Error(
-					`${Math.floor(
-						discrepancy / 3_600_000
-					)} hours of discrepancy between local time and the node time. The client cannot know which one is more correct. Please ensure your node is synced and that your local clock is correct`
-				);
-			}
-			const performanceNow = performance.now();
-			_syncTime = blockTimeInMs - performanceNow;
+			await syncTime();
 		}
 
 		logger.info(`sending request: ${args.method}`);
@@ -280,7 +306,7 @@ export function wrapProvider(
 					(args as unknown as EIP1193TransactionRequestWithMetadata).params[1]
 				);
 
-				let txWithMetadata = { ...tx, metadata, timestamp: currentTime() };
+				let txWithMetadata = { ...tx, metadata, timestamp: await syncTime() };
 
 				if (currentObservers?.onTxRequested) {
 					currentObservers?.onTxRequested(txWithMetadata);
@@ -377,6 +403,8 @@ export function wrapProvider(
 			setObservers,
 			unsetObservers,
 			currentTime,
+			syncTime,
+			waitNewBlock,
 			setUnderlyingProvider,
 		},
 		{
@@ -391,6 +419,8 @@ export function wrapProvider(
 					case '__web3_connection__':
 					case 'setObservers':
 					case 'currentTime':
+					case 'syncTime':
+					case 'waitNewBlock':
 					case 'unsetObservers':
 					case 'setUnderlyingProvider':
 					case 'underlyingProvider':

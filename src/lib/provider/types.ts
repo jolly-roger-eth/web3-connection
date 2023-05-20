@@ -1,4 +1,9 @@
-import type { EIP1193Provider, EIP1193Request, EIP1193TransactionData } from 'eip-1193';
+import type {
+	EIP1193Block,
+	EIP1193Provider,
+	EIP1193Request,
+	EIP1193TransactionData,
+} from 'eip-1193';
 
 export type EIP1193BlocknumberSubscribeRequest = {
 	method: 'eth_subscribe';
@@ -45,6 +50,8 @@ export type Web3ConnectionProvider = ObservableProvider & {
 	setNextMetadata(metadata: any): void;
 	__web3_connection_: true;
 	currentTime(): number;
+	syncTime(): Promise<number>;
+	waitNewBlock(): Promise<EIP1193Block>;
 	underlyingProvider: EIP1193ProviderWithBlocknumberSubscription;
 	setUnderlyingProvider(ethereum: EIP1193ProviderWithBlocknumberSubscription): void;
 };
