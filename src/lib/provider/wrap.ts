@@ -58,10 +58,29 @@ export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Obse
 	};
 }
 
+export type WrappProviderConfig = {
+	errorOnTimeDifference?:
+		| {
+				threshold?: number;
+				onlyLog?: boolean;
+		  }
+		| false;
+};
+
 export function wrapProvider(
 	providerToWrap: EIP1193Provider,
-	observers: EIP1193Observers
+	observers: EIP1193Observers,
+	config?: WrappProviderConfig
 ): Web3ConnectionProvider {
+	const errorOnTimeDifference =
+		config?.errorOnTimeDifference === false
+			? false
+			: {
+					threshold: 3_600_000,
+					onlyLog: false,
+					...(config?.errorOnTimeDifference || {}),
+			  };
+
 	let _syncTime: number | undefined;
 
 	function currentTime() {
@@ -101,13 +120,22 @@ export function wrapProvider(
 		const blockTimeInMs = parseInt(latestBlock.timestamp.slice(2), 16) * 1000;
 		const localTimestamp = Date.now();
 		const discrepancy = localTimestamp - blockTimeInMs;
-		if (Math.abs(discrepancy) > 3_600_000) {
-			throw new Error(
-				`${Math.floor(
-					discrepancy / 3_600_000
-				)} hours of discrepancy between local time and the node time. The client cannot know which one is more correct. Please ensure your node is synced and that your local clock is correct`
-			);
+		if (errorOnTimeDifference) {
+			if (Math.abs(discrepancy) > errorOnTimeDifference.threshold) {
+				const hours = Math.floor(discrepancy / 3_600_000);
+				const message =
+					(discrepancy < 0
+						? `Node is ${-hours} ahead of your machine's clock.`
+						: `Node is ${hours} behind of your machine's clock.`) +
+					`The client cannot know which one is more correct. Please ensure your node is synced and that your local clock is correct`;
+				if (errorOnTimeDifference.onlyLog) {
+					console.error(message);
+				} else {
+					throw new Error(message);
+				}
+			}
 		}
+
 		const performanceNow = performance.now();
 		_syncTime = blockTimeInMs - performanceNow;
 

@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.21
+
+### Patch Changes
+
+- add options to not error on time difference
+
 ## 0.0.20
 
 ### Patch Changes

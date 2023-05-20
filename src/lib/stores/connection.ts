@@ -4,7 +4,7 @@ import { createBuiltinStore } from './builtin';
 import { logs } from 'named-logs';
 import { wait } from '$lib/utils/time';
 import { formatChainId } from '$lib/utils/ethereum';
-import { multiObersvers, wrapProvider } from '$lib/provider/wrap';
+import { multiObersvers, wrapProvider, type WrappProviderConfig } from '$lib/provider/wrap';
 import type { EIP1193Observers, Web3ConnectionProvider } from '$lib/provider/types';
 import { createPendingActionsStore } from './pending-actions';
 import { createManageablePromise, createManageablePromiseWithId } from '$lib/utils/promises';
@@ -222,6 +222,7 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 	parameters?: FlexibleParameters;
 	autoConnectUsingPrevious?: boolean;
 	networks?: NetworkConfigs<NetworkConfig>;
+	provider?: WrappProviderConfig;
 	defaultRPC?: { chainId: string; url: string }; // TODO per chain ?
 	acccountData?: {
 		loadWithNetworkConnected: (
