@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.19
+
+### Patch Changes
+
+- do not stringigy unknown data
+
 ## 0.0.18
 
 ### Patch Changes
