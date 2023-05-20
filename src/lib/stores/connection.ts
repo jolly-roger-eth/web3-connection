@@ -465,7 +465,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	): Web3ConnectionProvider {
 		let old_provider: EIP1193ProviderWithBlocknumberSubscription | undefined;
 		if (!single_provider) {
-			single_provider = wrapProvider(ethereum, observers);
+			single_provider = wrapProvider(ethereum, observers, config.provider);
 		} else {
 			old_provider = single_provider.underlyingProvider;
 			single_provider.setUnderlyingProvider(ethereum);
