@@ -129,7 +129,7 @@ export function wrapProvider(
 				metadata = nextMetadata;
 				nextMetadata = undefined;
 				if (metadata) {
-					logger.info(`metadata found`, JSON.stringify(metadata, null, 2));
+					logger.info(`metadata found`, metadata);
 				} else {
 					logger.info(`metadata not found`);
 				}
