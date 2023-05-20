@@ -237,9 +237,10 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 		unload: () => Promise<void>;
 	};
 	observers?: EIP1193Observers;
-	checkGenesis?: {
+	devNetwork?: {
 		chainId: string;
 		url: string;
+		checkGenesis?: boolean;
 	};
 };
 
@@ -546,9 +547,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			if (!single_provider) {
 				throw new Error(`no provider setup`);
 			}
-			if (config.checkGenesis && config.checkGenesis.chainId === chainId) {
+			if (config.devNetwork?.checkGenesis && config.devNetwork.chainId === chainId) {
 				logger.info(`checking genesis...`);
-				const genesis = await checkGenesis(single_provider, config.checkGenesis.url);
+				const genesis = await checkGenesis(single_provider, config.devNetwork.url);
 				let genesisChanged: boolean = false;
 				if (hasTrackedGenesisChanged(chainId, genesis.hash)) {
 					genesisChanged = true;
@@ -741,11 +742,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				if (!$state.provider) {
 					logger.error(`pollChainChanged: no provider anymore, but we are still listening !!!???`);
 				}
-				if ($account.address && single_provider && config.checkGenesis) {
+				if ($account.address && single_provider && config.devNetwork?.checkGenesis) {
 					nonceCached = await isNonceCached(
 						$account.address,
 						single_provider,
-						config.checkGenesis.url
+						config.devNetwork.url
 					);
 					if (!nonceCached) {
 						if ($network.chainId && $network.genesisHash) {
@@ -772,8 +773,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				if (!$state.provider) {
 					logger.error(`pollChainChanged: no provider anymore, but we are still listening !!!???`);
 				}
-				if ($account.address && single_provider && config.checkGenesis) {
-					const genesisStatus = await checkGenesis(single_provider, config.checkGenesis.url);
+				if ($account.address && single_provider && config.devNetwork?.checkGenesis) {
+					const genesisStatus = await checkGenesis(single_provider, config.devNetwork.url);
 					genesisNotMatching = !genesisStatus.matching;
 					if (genesisStatus.matching) {
 						recordNewGenesis($network.chainId, $network.genesisHash);
@@ -1073,12 +1074,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		let loadCounterUsed = loadCounter;
 		// let counter = ++accountUpdateCounter;
 		if (address) {
-			if (config.checkGenesis) {
+			if (config.devNetwork?.checkGenesis) {
 				if (!single_provider) {
 					throw new Error(`no provider`);
 				}
 				logger.info(`checking nonce...`);
-				const nonceCached = await isNonceCached(address, single_provider, config.checkGenesis.url);
+				const nonceCached = await isNonceCached(address, single_provider, config.devNetwork.url);
 				if (nonceCached) {
 					console.error(`nonce not matching, your provider is caching wrong info`);
 				}
@@ -1776,6 +1777,11 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		}
 	}
 
+	let devProvider: EIP1193Provider | undefined;
+	if (config.devNetwork) {
+		devProvider = createRPCProvider(config.devNetwork);
+	}
+
 	return {
 		connection: {
 			...readable,
@@ -1816,6 +1822,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 				_accountLoadingStep.reject(value);
 			},
 		},
+		devProvider,
 		pendingActions,
 		execution: {
 			...readableExecution,
