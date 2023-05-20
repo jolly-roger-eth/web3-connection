@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.20
+
+### Patch Changes
+
+- use syncTime
+
 ## 0.0.19
 
 ### Patch Changes
