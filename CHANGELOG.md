@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.23
+
+### Patch Changes
+
+- auto sync time
+
 ## 0.0.22
 
 ### Patch Changes
