@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.24
+
+### Patch Changes
+
+- add devNetwork
+
 ## 0.0.23
 
 ### Patch Changes
