@@ -313,7 +313,7 @@ export function wrapProvider(
 			await syncTime();
 		}
 
-		logger.info(`sending request: ${args.method}`);
+		// logger.info(`sending request: ${args.method}`);
 
 		switch (args.method) {
 			case 'eth_getBlockByNumber':
