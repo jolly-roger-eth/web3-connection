@@ -365,7 +365,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 
 	let lastBlockNumberEmitted: number | undefined;
 	function emitNewBlockIfNotAlreadyEmitted(blockNumber: number) {
-		if (!lastBlockNumberEmitted || lastBlockNumberEmitted < blockNumber) {
+		if (!lastBlockNumberEmitted || lastBlockNumberEmitted != blockNumber) {
 			lastBlockNumberEmitted = blockNumber;
 			emitter.emit(blockNumber);
 		}
