@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.25
+
+### Patch Changes
+
+- onNewBlock whenevr possible
+
 ## 0.0.24
 
 ### Patch Changes
