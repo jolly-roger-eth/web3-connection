@@ -363,6 +363,14 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		return emitter.off(func);
 	}
 
+	let lastBlockNumberEmitted: number | undefined;
+	function emitNewBlockIfNotAlreadyEmitted(blockNumber: number) {
+		if (!lastBlockNumberEmitted || lastBlockNumberEmitted < blockNumber) {
+			lastBlockNumberEmitted = blockNumber;
+			emitter.emit(blockNumber);
+		}
+	}
+
 	let timer: Timeout | undefined;
 	let subscriptionId: `0x${string}` | undefined;
 	async function handleNewHeads(
@@ -414,8 +422,9 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 					timer_lastBlockNumber = blockNumber;
 					timer_lastBlockTime = blockTimestamp;
 
+					emitNewBlockIfNotAlreadyEmitted(blockNumber);
+
 					single_provider?.syncTime(blockTimestamp);
-					emitter.emit(blockNumber);
 				}
 			}
 		}
@@ -468,7 +477,12 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 	): Web3ConnectionProvider {
 		let old_provider: EIP1193ProviderWithBlocknumberSubscription | undefined;
 		if (!single_provider) {
-			single_provider = wrapProvider(ethereum, observers, config.provider);
+			single_provider = wrapProvider(
+				ethereum,
+				observers,
+				config.provider,
+				emitNewBlockIfNotAlreadyEmitted
+			);
 		} else {
 			old_provider = single_provider.underlyingProvider;
 			single_provider.setUnderlyingProvider(ethereum);

@@ -65,12 +65,15 @@ export type WrappProviderConfig = {
 				onlyLog?: boolean;
 		  }
 		| false;
+
+	devProvider?: EIP1193Provider; // TODO use this
 };
 
 export function wrapProvider(
 	providerToWrap: EIP1193Provider,
 	observers: EIP1193Observers,
-	config?: WrappProviderConfig
+	config?: WrappProviderConfig,
+	emitNewBlockIfNotAlreadyEmitted?: (blockNumber: number) => void
 ): Web3ConnectionProvider {
 	const errorOnTimeDifference =
 		config?.errorOnTimeDifference === false
@@ -120,6 +123,7 @@ export function wrapProvider(
 			});
 			const blockTime = parseInt(latestBlock.timestamp.slice(2), 16);
 			latestBlockTime = blockTime;
+			emitNewBlockIfNotAlreadyEmitted && emitNewBlockIfNotAlreadyEmitted(latestBlockTime);
 		} else if (typeof latestBlockTime !== 'number') {
 			const blockTime = parseInt(latestBlockTime.timestamp.slice(2), 16);
 			latestBlockTime = blockTime;
@@ -313,17 +317,23 @@ export function wrapProvider(
 
 		switch (args.method) {
 			case 'eth_getBlockByNumber':
-				const blockByNumber = await _request(args);
+				const blockByNumber: EIP1193Block = await _request(args);
+				if (blockByNumber) {
+					emitNewBlockIfNotAlreadyEmitted &&
+						emitNewBlockIfNotAlreadyEmitted(parseInt(blockByNumber.number.slice(2), 16));
+				}
+
 				if (args.params[0] === 'latest') {
 					syncTime(blockByNumber as EIP1193Block);
 				}
 				return blockByNumber;
-			// case 'eth_blockNumber':
-			// 	const result = await _request(args);
-			// 	if (args.params[0] === 'latest') {
-			// 		syncTime(result as EIP1193Block);
-			// 	}
-			// 	return result;
+			case 'eth_blockNumber':
+				const result: `0x${string}` = await _request(args);
+				if (result) {
+					emitNewBlockIfNotAlreadyEmitted &&
+						emitNewBlockIfNotAlreadyEmitted(parseInt(result.slice(2), 16));
+				}
+				return result;
 			case 'eth_sendTransaction':
 				const tx = args.params[0];
 
