@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.0.26
+
+### Patch Changes
+
+- onNewBlock for different block
+
 ## 0.0.25
 
 ### Patch Changes
