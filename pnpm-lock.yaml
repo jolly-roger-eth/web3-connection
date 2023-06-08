@@ -27,6 +27,9 @@ devDependencies:
   '@types/node':
     specifier: ^20.1.0
     version: 20.1.0
+  abitype:
+    specifier: ^0.8.7
+    version: 0.8.7(typescript@5.0.4)
   as-soon:
     specifier: ^0.0.4
     version: 0.0.4
@@ -780,6 +783,18 @@ packages:
 
   /abab@2.0.6:
     resolution: {integrity: sha512-j2afSsaIENvHZN2B8GOpF566vZ5WVk5opAiMTvWgaQT8DkbOqsTfvNAvHoRGU2zzP8cPoqys+xHTRDWW8L+/BA==}
+    dev: true
+
+  /abitype@0.8.7(typescript@5.0.4):
+    resolution: {integrity: sha512-wQ7hV8Yg/yKmGyFpqrNZufCxbszDe5es4AZGYPBitocfSqXtjrTG9JMWFcc4N30ukl2ve48aBTwt7NJxVQdU3w==}
+    peerDependencies:
+      typescript: '>=5.0.4'
+      zod: ^3 >=3.19.1
+    peerDependenciesMeta:
+      zod:
+        optional: true
+    dependencies:
+      typescript: 5.0.4
     dev: true
 
   /acorn-walk@8.2.0:

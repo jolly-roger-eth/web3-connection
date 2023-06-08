@@ -1,12 +1,13 @@
 import type {
 	NetworkConfigs,
 	MultiNetworkConfigs,
-	GenericNetworkConfig,
+	SingleNetworkConfig,
+	GenericContractsInfos,
 } from '$lib/stores/connection';
 import { formatChainId, toHex } from './ethereum';
 
-export function getContractInfos<N extends GenericNetworkConfig>(
-	networkConfigs: NetworkConfigs<N>,
+export function getContractInfos<N extends SingleNetworkConfig<GenericContractsInfos>>(
+	networkConfigs: NetworkConfigs<N['contracts']>,
 	chainId: string
 ): N['contracts'] | undefined {
 	if ('chainId' in networkConfigs && networkConfigs.chainId) {
@@ -18,7 +19,7 @@ export function getContractInfos<N extends GenericNetworkConfig>(
 			return undefined;
 		}
 	} else {
-		const multinetworkConfigs = networkConfigs as MultiNetworkConfigs<N>;
+		const multinetworkConfigs = networkConfigs as unknown as MultiNetworkConfigs<N['contracts']>;
 		const networkConfig =
 			multinetworkConfigs.chains[chainId] || multinetworkConfigs.chains[toHex(chainId)];
 		if (!networkConfig) {

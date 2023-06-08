@@ -29,6 +29,7 @@ import {
 	recordNewGenesis,
 	type NonceCachedStatus,
 } from '$lib/utils/chain';
+import type { Abi, Address } from 'abitype';
 
 type Timeout = NodeJS.Timeout;
 
@@ -67,27 +68,27 @@ export type ConnectionRequirements =
 	| 'connection+account' // connected to perform raw call, including write one, any network
 	| 'connection+network+account'; // connected to perform contract read and write call to supported network
 
-// TODO ABI type (use abitype ?)
-type GenericAbi = readonly any[];
 export type GenericContractsInfos = {
-	readonly [name: string]: { readonly address: `0x${string}`; readonly abi: GenericAbi };
+	readonly [name: string]: { readonly address: `0x${string}`; readonly abi: Abi };
 };
 
-export type GenericNetworkConfig = {
+export type SingleNetworkConfig<ContractsInfos extends GenericContractsInfos> = {
 	chainId: string;
 	name?: string;
-	contracts: GenericContractsInfos;
+	contracts: ContractsInfos;
 };
 
-// TODO rethink this : or support array too ?
-export type MultiNetworkConfigs<N extends GenericNetworkConfig> = {
-	chains: { [chainId: string]: N };
+// // TODO rethink this : or support array too ?
+// Also note that we expect all contract to have same abi to ensure we cna use typesafety
+export type MultiNetworkConfigs<ContractsInfos extends GenericContractsInfos> = {
+	chains: { [chainId: string]: SingleNetworkConfig<ContractsInfos> };
 };
 
-export type NetworkConfigs<N extends GenericNetworkConfig> =
-	| MultiNetworkConfigs<N>
-	| N
-	| ((chainId: string) => Promise<N | MultiNetworkConfigs<N>>);
+export type NetworkConfigs<ContractsInfos extends GenericContractsInfos> =
+	| SingleNetworkConfig<ContractsInfos>
+	| ((
+			chainId: string
+	  ) => Promise<SingleNetworkConfig<ContractsInfos> | MultiNetworkConfigs<ContractsInfos>>);
 
 export type Web3ConnectionError = {
 	title?: string;
@@ -124,10 +125,10 @@ export type DisconnectedState = BaseConnectionState & {
 
 export type ConnectionState = ConnectedState | DisconnectedState;
 
-export type NetworkState<NetworkConfig extends GenericNetworkConfig> =
+export type NetworkState<ContractsInfos extends GenericContractsInfos> =
 	| DisconectedNetworkState
 	| DisconectedBecauseNotSupportedNetworkState
-	| ConnectedNetworkState<NetworkConfig>;
+	| ConnectedNetworkState<ContractsInfos>;
 
 type BaseNetworkState = {
 	error?: Web3ConnectionError;
@@ -156,35 +157,38 @@ export type DisconectedBecauseNotSupportedNetworkState = BaseNetworkState & {
 	contracts: undefined;
 };
 
-export type ConnectedNetworkState<NetworkConfig extends GenericNetworkConfig> = BaseNetworkState & {
-	state: 'Connected';
-	fetchingChainId: false;
-	chainId: string;
-	loading: false;
-	notSupported: false;
-	contracts: NetworkConfig['contracts'];
-};
+export type ConnectedNetworkState<ContractsInfo extends GenericContractsInfos> =
+	BaseNetworkState & {
+		state: 'Connected';
+		fetchingChainId: false;
+		chainId: string;
+		loading: false;
+		notSupported: false;
+		contracts: GenericContractsInfos;
+	};
 
 type BaseAccountState = {
 	error?: Web3ConnectionError;
 };
 
-export type AccountState = ConnectedAccountState | DisconnectedAccountState;
+export type AccountState<TAddress extends Address> =
+	| ConnectedAccountState<TAddress>
+	| DisconnectedAccountState<TAddress>;
 
-export type ConnectedAccountState = BaseAccountState & {
+export type ConnectedAccountState<TAddress extends Address> = BaseAccountState & {
 	state: 'Connected';
 	locked: false;
 	unlocking: false;
-	address: `0x${string}`;
+	address: TAddress;
 	loadingData: undefined;
 	loadingStep: undefined;
 };
 
-export type DisconnectedAccountState = BaseAccountState & {
+export type DisconnectedAccountState<TAddress extends Address> = BaseAccountState & {
 	state: 'Disconnected';
 	locked: boolean;
 	unlocking: boolean;
-	address?: `0x${string}`;
+	address?: TAddress;
 	loadingData?: string;
 	loadingStep?: string;
 };
@@ -194,14 +198,19 @@ export type OnConnectionExecuteState = {
 };
 export type ConnectAndExecuteCallback<T> = (state: OnConnectionExecuteState) => Promise<T>;
 
-export type OnExecuteState<NetworkConfig extends GenericNetworkConfig> = {
+export type OnExecuteState<
+	ContractsInfos extends GenericContractsInfos,
+	TAddress extends Address
+> = {
 	connection: ConnectedState;
-	account: ConnectedAccountState;
-	network: ConnectedNetworkState<NetworkConfig>;
+	account: ConnectedAccountState<TAddress>;
+	network: ConnectedNetworkState<ContractsInfos>;
 };
-export type ExecuteCallback<NetworkConfig extends GenericNetworkConfig, T> = (
-	state: OnExecuteState<NetworkConfig>
-) => Promise<T>;
+export type ExecuteCallback<
+	ContractsInfos extends GenericContractsInfos,
+	TAddress extends Address,
+	T
+> = (state: OnExecuteState<ContractsInfos, TAddress>) => Promise<T>;
 
 export type ExecutionState = {
 	executing: boolean;
@@ -217,11 +226,14 @@ export type Parameters = {
 export type ParametersPerNetwork = { default: Parameters; [chainId: string]: Parameters };
 export type FlexibleParameters = Parameters | ParametersPerNetwork;
 
-export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
+export type ConnectionConfig<
+	NetworkConfig extends NetworkConfigs<ContractsInfos>,
+	ContractsInfos extends GenericContractsInfos
+> = {
 	options?: (string | Web3WModule | Web3WModuleLoader)[];
 	parameters?: FlexibleParameters;
 	autoConnectUsingPrevious?: boolean;
-	networks?: NetworkConfigs<NetworkConfig>;
+	networks?: NetworkConfig;
 	provider?: WrappProviderConfig;
 	defaultRPC?: { chainId: string; url: string }; // TODO per chain ?
 	acccountData?: {
@@ -229,7 +241,7 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 			state: {
 				address: `0x${string}`;
 				connection: ConnectedState;
-				network: DisconectedBecauseNotSupportedNetworkState | ConnectedNetworkState<NetworkConfig>;
+				network: DisconectedBecauseNotSupportedNetworkState | ConnectedNetworkState<ContractsInfos>;
 			},
 			setLoadingMessage: (msg: string) => void,
 			waitForStep: (stepName?: string) => Promise<unknown>
@@ -244,9 +256,10 @@ export type ConnectionConfig<NetworkConfig extends GenericNetworkConfig> = {
 	};
 };
 
-export function init<NetworkConfig extends GenericNetworkConfig>(
-	config: ConnectionConfig<NetworkConfig>
-) {
+export function init<
+	NetworkConfig extends NetworkConfigs<ContractsInfos>,
+	ContractsInfos extends GenericContractsInfos
+>(config: ConnectionConfig<NetworkConfig, ContractsInfos>) {
 	// ----------------------------------------------------------------------------------------------
 	// Arguments Consumption
 	// ----------------------------------------------------------------------------------------------
@@ -309,7 +322,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		$state: $network,
 		set: setNetwork,
 		readable: readableNetwork,
-	} = createStore<NetworkState<NetworkConfig>>({
+	} = createStore<NetworkState<ContractsInfos>>({
 		state: 'Disconnected',
 		fetchingChainId: false,
 		loading: false,
@@ -321,7 +334,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		$state: $account,
 		set: _setAccount,
 		readable: readableAccount,
-	} = createStore<AccountState>({
+	} = createStore<AccountState<Address>>({
 		state: 'Disconnected',
 		locked: false,
 		unlocking: false,
@@ -595,7 +608,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						chainId,
 						loading: true,
 					});
-					networkConfigs = await networkConfigs(chainId);
+					// TODO check multiple networks ?
+					networkConfigs = (await networkConfigs(chainId)) as NetworkConfig;
 				}
 
 				// TODO cache
@@ -1147,7 +1161,7 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 										connection: $state as ConnectedState,
 										network: $network as
 											| DisconectedBecauseNotSupportedNetworkState
-											| ConnectedNetworkState<NetworkConfig>,
+											| ConnectedNetworkState<ContractsInfos>,
 									},
 									(msg: string) => {
 										setAccount({ loadingData: msg || $account.loadingData });
@@ -1558,8 +1572,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 		});
 	}
 
-	async function execute<T>(
-		callback: ExecuteCallback<NetworkConfig, T>
+	async function execute<T, TAddress extends Address>(
+		callback: ExecuteCallback<ContractsInfos, TAddress, T>
 		//options?: { requireUserConfirmation?: boolean }
 	): Promise<T | undefined> {
 		setExecution({ executing: true });
@@ -1572,8 +1586,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 			setExecution({ executing: true });
 			return callback({
 				connection: $state as ConnectedState,
-				account: $account as ConnectedAccountState,
-				network: $network as ConnectedNetworkState<NetworkConfig>,
+				account: $account as ConnectedAccountState<TAddress>,
+				network: $network as ConnectedNetworkState<ContractsInfos>,
 			}).finally(() => {
 				setExecution({ executing: false });
 			});
@@ -1589,8 +1603,8 @@ export function init<NetworkConfig extends GenericNetworkConfig>(
 						setExecution({ executing: true });
 						callback({
 							connection: $state as unknown as ConnectedState, // this is because connected means we are in "Connected" state // TODO double check or assert
-							account: $account as ConnectedAccountState,
-							network: $network as ConnectedNetworkState<NetworkConfig>,
+							account: $account as ConnectedAccountState<TAddress>,
+							network: $network as ConnectedNetworkState<ContractsInfos>,
 						})
 							.finally(() => {
 								setExecution({ executing: false });
