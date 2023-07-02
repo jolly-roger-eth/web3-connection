@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.0
+
+### Minor Changes
+
+- svelte 4.0
+
 ## 0.0.28
 
 ### Patch Changes
