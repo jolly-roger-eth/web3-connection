@@ -256,10 +256,9 @@ export type ConnectionConfig<
 	};
 };
 
-export function init<
-	NetworkConfig extends NetworkConfigs<ContractsInfos>,
-	ContractsInfos extends GenericContractsInfos
->(config: ConnectionConfig<NetworkConfig, ContractsInfos>) {
+export function init<ContractsInfos extends GenericContractsInfos>(
+	config: ConnectionConfig<NetworkConfigs<ContractsInfos>, ContractsInfos>
+) {
 	// ----------------------------------------------------------------------------------------------
 	// Arguments Consumption
 	// ----------------------------------------------------------------------------------------------
