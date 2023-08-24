@@ -1275,6 +1275,13 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				address: $account.address,
 			});
 
+			if (config.acccountData) {
+				try {
+					loadCounterUsed = ++loadCounter;
+					await config.acccountData.unload();
+				} catch (err) {}
+			}
+
 			// TODO if network was read-only ?
 			// await disconnect(false);
 			// // TODO  'connection+account' option

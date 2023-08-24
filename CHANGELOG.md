@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.2
+
+### Patch Changes
+
+- unload on disconnect
+
 ## 0.1.1
 
 ### Patch Changes
