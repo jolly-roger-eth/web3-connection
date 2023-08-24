@@ -395,7 +395,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					method: 'eth_unsubscribe',
 					params: [subscriptionId],
 				})
-				.catch((err) => {
+				.catch((err: any) => {
 					console.error(`failed to unsubscribe from newHeads`, err);
 				});
 		}
@@ -419,6 +419,9 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					params: ['latest', false],
 				});
 				const block = await pending_request;
+				if (!block) {
+					throw new Error(`cannot fetch latest block`);
+				}
 				pending_request = undefined;
 				// const currenTime = provider.currentTime();
 
@@ -561,7 +564,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 	}
 
-	async function updateContractsInfos(newNetworkConfig: NetworkConfig) {
+	async function updateContractsInfos(newNetworkConfig: NetworkConfigs<ContractsInfos>) {
 		config.networks = newNetworkConfig;
 		if ($network.chainId) {
 			handleNetwork($network.chainId);
@@ -608,7 +611,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 						loading: true,
 					});
 					// TODO check multiple networks ?
-					networkConfigs = (await networkConfigs(chainId)) as NetworkConfig;
+					networkConfigs = (await networkConfigs(chainId)) as NetworkConfigs<ContractsInfos>;
 				}
 
 				// TODO cache
@@ -1330,6 +1333,11 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	async function disconnect(resolve = true): Promise<void> {
 		stopListeningForChanges();
 		setAccount({ state: 'Disconnected', locked: false, unlocking: false, address: undefined });
+		if (config.acccountData) {
+			try {
+				await config.acccountData.unload();
+			} catch (err) {}
+		}
 		setNetwork({
 			state: 'Disconnected',
 			fetchingChainId: false,

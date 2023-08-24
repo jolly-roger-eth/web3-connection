@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.3
+
+### Patch Changes
+
+- ensure unload is called when disconnect
+
 ## 0.1.2
 
 ### Patch Changes
