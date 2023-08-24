@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.4
+
+### Patch Changes
+
+- accountDataLoaded = undefined;
+
 ## 0.1.3
 
 ### Patch Changes

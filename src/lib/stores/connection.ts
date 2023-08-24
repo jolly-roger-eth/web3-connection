@@ -1156,7 +1156,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 								});
 							}
 							try {
-								console.log(`BEFORE LOAD`, JSON.stringify($account, null, 2));
+								// console.log(`BEFORE LOAD`, JSON.stringify($account, null, 2));
 								await config.acccountData.loadWithNetworkConnected(
 									{
 										address,
@@ -1279,6 +1279,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			});
 
 			if (config.acccountData) {
+				accountDataLoaded = undefined;
 				try {
 					loadCounterUsed = ++loadCounter;
 					await config.acccountData.unload();
@@ -1334,6 +1335,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		stopListeningForChanges();
 		setAccount({ state: 'Disconnected', locked: false, unlocking: false, address: undefined });
 		if (config.acccountData) {
+			accountDataLoaded = undefined;
 			try {
 				await config.acccountData.unload();
 			} catch (err) {}
