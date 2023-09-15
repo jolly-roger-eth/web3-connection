@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.5
+
+### Patch Changes
+
+- do not check nonce mistmatch if chainid are not matching anyway
+
 ## 0.1.4
 
 ### Patch Changes

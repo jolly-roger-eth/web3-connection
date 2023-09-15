@@ -1104,7 +1104,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		let loadCounterUsed = loadCounter;
 		// let counter = ++accountUpdateCounter;
 		if (address) {
-			if (config.devNetwork?.checkGenesis) {
+			if (config.devNetwork?.checkGenesis && config.devNetwork.chainId === newChainId) {
 				if (!single_provider) {
 					throw new Error(`no provider`);
 				}
