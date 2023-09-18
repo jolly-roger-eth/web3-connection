@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.6
+
+### Patch Changes
+
+- expected errors should be caught and converted in connection.error, etc...
+
 ## 0.1.5
 
 ### Patch Changes

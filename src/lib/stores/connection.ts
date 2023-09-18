@@ -893,9 +893,19 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				builtin.$state.state === 'Ready' &&
 				!builtin.$state.available
 			) {
-				const message = `No Builtin Wallet`;
-				// set(walletStore, {error: {message, code: 1}}); // TODO code
-				throw new Error(message);
+				return set({
+					state: 'Disconnected',
+					connecting: false,
+					requireSelection: false,
+					loadingModule: false,
+					walletType: $state.walletType,
+					provider: $state.provider,
+					error: {
+						title: 'No Builtin Wallet',
+						message: `No builtin wallet found.`,
+						id: 'NoBuiltinWallet',
+					},
+				});
 			} // TODO other type: check if module registered
 
 			set({
@@ -905,12 +915,19 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				logger.info(`probing window.ethereum...`);
 				const builtinProvider = await builtin.probe();
 				if (!builtinProvider) {
-					const message = `no window.ethereum found!`;
-					set({
+					return set({
+						state: 'Disconnected',
 						connecting: false,
-						error: { message },
+						requireSelection: false,
+						loadingModule: false,
+						walletType: $state.walletType,
+						provider: $state.provider,
+						error: {
+							title: 'No Builtin Wallet',
+							message: `No builtin wallet found.`,
+							id: 'NoBuiltinWallet',
+						},
 					});
-					throw new Error(message);
 				}
 				logger.info(`window.ethereum found, setting up provider...`);
 				set({
@@ -936,12 +953,19 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				}
 
 				if (!module) {
-					const message = `no module found: ${type}`;
-					set({
+					return set({
+						state: 'Disconnected',
 						connecting: false,
-						error: { message },
+						requireSelection: false,
+						loadingModule: false,
+						walletType: $state.walletType,
+						provider: $state.provider,
+						error: {
+							title: 'No Module Found',
+							message: `No Module found: ${type}`,
+							id: 'NoModuleFound',
+						},
 					});
-					throw new Error(message);
 				}
 
 				try {
@@ -1011,7 +1035,19 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					connecting: false,
 					error: { message }, // TODO code
 				});
-				throw new Error(message);
+				return set({
+					state: 'Disconnected',
+					connecting: false,
+					requireSelection: false,
+					loadingModule: false,
+					walletType: $state.walletType,
+					provider: $state.provider,
+					error: {
+						title: 'No Wallet Found',
+						message,
+						id: 'NoWalletFound',
+					},
+				});
 			}
 
 			recordSelection(type);
@@ -1033,16 +1069,19 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 
 				const error = { message: `could not fetch chainId`, cause: err };
 				// cannot fetch chainId, this means we are not connected
-				set({
+
+				// TODO? this need to be everywhere where we throw : _connect.reject('*', err);  no ?
+				_connect.reject('*', error);
+
+				return set({
+					state: 'Disconnected',
 					connecting: false,
+					requireSelection: false,
+					loadingModule: false,
 					walletType: $state.walletType,
 					provider: $state.provider,
 					error,
 				});
-
-				// TODO? this need to be everywhere where we throw : _connect.reject('*', err);  no ?
-				_connect.reject('*', error);
-				throw err;
 			}
 
 			// this allow typoescript to stay silent about $network.chainId being possibly undefined
