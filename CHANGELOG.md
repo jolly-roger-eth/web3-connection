@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.7
+
+### Patch Changes
+
+- add loadingStep data
+
 ## 0.1.6
 
 ### Patch Changes

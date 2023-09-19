@@ -180,7 +180,7 @@ export type ConnectedAccountState<TAddress extends Address> = BaseAccountState &
 	locked: false;
 	unlocking: false;
 	address: TAddress;
-	loadingData: undefined;
+	isLoadingData: undefined;
 	loadingStep: undefined;
 };
 
@@ -189,8 +189,8 @@ export type DisconnectedAccountState<TAddress extends Address> = BaseAccountStat
 	locked: boolean;
 	unlocking: boolean;
 	address?: TAddress;
-	loadingData?: string;
-	loadingStep?: string;
+	isLoadingData?: string;
+	loadingStep?: { id: string; data?: any };
 };
 
 export type OnConnectionExecuteState = {
@@ -542,18 +542,18 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				config.acccountData && 'loadWithNetworkConnected' in config.acccountData;
 			try {
 				if (needToLoadAccountData) {
-					setAccount({ state: 'Disconnected', loadingData: 'Loading Network...' });
+					setAccount({ state: 'Disconnected', isLoadingData: 'Loading Network...' });
 				}
 				await handleNetwork(chainIdAsDecimal);
 				if (needToLoadAccountData) {
-					setAccount({ state: 'Disconnected', loadingData: 'Loading account...' });
+					setAccount({ state: 'Disconnected', isLoadingData: 'Loading account...' });
 				}
 				await handleAccount($account.address, chainIdAsDecimal);
 			} catch (err) {
 				if (needToLoadAccountData) {
 					setAccount({
 						state: 'Disconnected',
-						loadingData: undefined,
+						isLoadingData: undefined,
 						loadingStep: undefined,
 						error: { message: `failed to handle network/account change`, cause: err },
 					}); // TODO any
@@ -1169,7 +1169,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 									address,
 									locked: false,
 									unlocking: false,
-									loadingData: `Unloading... for ( ${address})`,
+									isLoadingData: `Unloading... for ( ${address})`,
 									state: 'Disconnected',
 								});
 								try {
@@ -1184,11 +1184,11 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 									return;
 								}
 
-								setAccount({ loadingData: `Loading... ${address}` });
+								setAccount({ isLoadingData: `Loading... ${address}` });
 							} else {
 								accountDataLoaded = address;
 								setAccount({
-									loadingData: `Loading... ${address}`,
+									isLoadingData: `Loading... ${address}`,
 									address,
 									locked: false,
 									unlocking: false,
@@ -1205,13 +1205,18 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 											| ConnectedNetworkState<ContractsInfos>,
 									},
 									(msg: string) => {
-										setAccount({ loadingData: msg || $account.loadingData });
+										setAccount({ isLoadingData: msg || $account.isLoadingData });
 									},
-									(stepName?: string) => {
-										setAccount({ loadingStep: stepName || 'WaitingForConfirmation' });
-										return _accountLoadingStep.promise().finally(() => {
-											setAccount({ loadingStep: undefined });
-										});
+									(id?: string, data?: any) => {
+										setAccount({ loadingStep: { id: id || 'WaitingForConfirmation', data } });
+										return _accountLoadingStep
+											.promise()
+											.catch(() => {
+												recordSelection('');
+											})
+											.finally(() => {
+												setAccount({ loadingStep: undefined });
+											});
 									}
 								);
 
@@ -1224,7 +1229,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 								// 	return;
 								// }
 								setAccount({
-									loadingData: undefined,
+									isLoadingData: undefined,
 									loadingStep: undefined,
 								});
 
@@ -1252,7 +1257,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 								setAccount({
 									state: 'Disconnected',
 									// locked: false,
-									loadingData: undefined,
+									isLoadingData: undefined,
 									loadingStep: undefined,
 									error: { message: `failed to load account ${address}`, cause: err },
 								});
@@ -1268,7 +1273,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 									locked: false,
 									unlocking: false,
 								});
-								if (!$account.loadingData) {
+								if (!$account.isLoadingData) {
 									if ($network.state === 'Connected') {
 										_connect.resolve('connection+network+account', true);
 									} else {
@@ -1283,7 +1288,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 							locked: false,
 							unlocking: false,
 							address,
-							loadingData: 'Waiting for Network...',
+							isLoadingData: 'Waiting for Network...',
 						});
 						// do not resolve to false here
 						// _connect.resolve(['connection+account', 'connection+network+account'], false);
@@ -1294,7 +1299,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 						locked: false,
 						unlocking: false,
 						address,
-						loadingData: undefined,
+						isLoadingData: undefined,
 						loadingStep: undefined,
 						error: { message: `failed to handle account (${address})`, cause: err },
 					});
