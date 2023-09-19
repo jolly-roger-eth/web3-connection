@@ -244,7 +244,7 @@ export type ConnectionConfig<
 				network: DisconectedBecauseNotSupportedNetworkState | ConnectedNetworkState<ContractsInfos>;
 			},
 			setLoadingMessage: (msg: string) => void,
-			waitForStep: (stepName?: string) => Promise<unknown>
+			waitForStep: (id?: string, data?: any) => Promise<unknown>
 		) => Promise<void>;
 		unload: () => Promise<void>;
 	};
