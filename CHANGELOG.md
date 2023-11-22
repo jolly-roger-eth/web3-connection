@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.9
+
+### Patch Changes
+
+- types in own file + better error message when failed to fetch chainID
+
 ## 0.1.8
 
 ### Patch Changes
