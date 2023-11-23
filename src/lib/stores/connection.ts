@@ -732,6 +732,33 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				});
 
 				currentModule = undefined;
+			} else if (typeof typeOrModule === 'string' && typeOrModule.startsWith('builtin:')) {
+				const splitted = typeof typeOrModule === 'string' && typeOrModule.split(':');
+				const uuid = splitted && splitted[1];
+				const wallet = builtin.$state.walletsAnnounced.find((v) => v.info?.uuid === uuid);
+				if (!wallet) {
+					return set({
+						state: 'Disconnected',
+						connecting: false,
+						requireSelection: false,
+						loadingModule: false,
+						walletType: $state.walletType,
+						provider: $state.provider,
+						error: {
+							title: 'No Builtin Wallet',
+							message: `No builtin wallet found.`,
+							id: 'NoBuiltinWallet',
+						},
+					});
+				}
+				logger.info(`${typeOrModule} found, setting up provider...`);
+				set({
+					requireSelection: false,
+					walletType: { type, name: wallet.info?.name || typeOrModule },
+					provider: createProvider(wallet.provider),
+				});
+
+				currentModule = undefined;
 			} else {
 				let module: Web3WModule | Web3WModuleLoader | undefined;
 				if (typeof typeOrModule === 'string') {
