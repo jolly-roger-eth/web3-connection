@@ -22,12 +22,7 @@ import type {
 import { createRPCProvider } from '$lib/provider/rpc';
 import { initEmitter } from '$lib/external/callbacks';
 import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/types';
-import {
-	checkGenesis,
-	hasTrackedGenesisChanged,
-	isNonceCached,
-	recordNewGenesis,
-} from '$lib/utils/chain';
+import { checkBlockHeight, checkGenesis, isNonceCached } from '$lib/utils/chain';
 import type { Address } from 'abitype';
 import type {
 	AccountState,
@@ -371,24 +366,23 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			if (!single_provider) {
 				throw new Error(`no provider setup`);
 			}
-			if (config.devNetwork?.checkGenesis && config.devNetwork.chainId === chainId) {
+			if (config.devNetwork?.checkCacheIssues && config.devNetwork.chainId === chainId) {
 				logger.info(`checking genesis...`);
 				const genesis = await checkGenesis(single_provider, config.devNetwork.url);
-				let genesisChanged: boolean = false;
-				if (hasTrackedGenesisChanged(chainId, genesis.hash)) {
-					genesisChanged = true;
-				}
+				const blockHeight = await checkBlockHeight(single_provider, config.devNetwork.url);
 				setNetwork({
 					genesisNotMatching: !genesis.matching,
 					genesisHash: genesis.hash,
-					genesisChanged,
+					blocksCached: !blockHeight.matching,
 				});
-				listenForGeneisCacheCleared(true);
+				if (!genesis.matching || !blockHeight.matching) {
+					listenForBlocksCacheCleared(chainId, true);
+				}
 			} else {
 				setNetwork({
 					genesisNotMatching: undefined,
 					genesisHash: undefined,
-					genesisChanged: undefined,
+					blocksCached: undefined,
 				});
 			}
 			if (!config.networks) {
@@ -558,26 +552,25 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 	}
 
-	async function listenForNonceCacheCleared(skipFirst?: boolean) {
+	async function listenForNonceCacheCleared(chainId: string, skipFirst?: boolean) {
 		let nonceCached = $network.nonceCached;
 		while (nonceCached) {
-			if (skipFirst) {
-				skipFirst = false;
-			} else {
-				if (!$state.provider) {
-					logger.error(`pollChainChanged: no provider anymore, but we are still listening !!!???`);
-				}
-				if ($account.address && single_provider && config.devNetwork?.checkGenesis) {
-					nonceCached = await isNonceCached(
-						$account.address,
-						single_provider,
-						config.devNetwork.url
-					);
-					if (!nonceCached) {
-						if ($network.chainId && $network.genesisHash) {
-							recordNewGenesis($network.chainId, $network.genesisHash);
-							setNetwork({ nonceCached, genesisChanged: false });
-						} else {
+			if ($network.chainId == chainId) {
+				if (skipFirst) {
+					skipFirst = false;
+				} else {
+					if (!$state.provider) {
+						logger.error(
+							`pollChainChanged: no provider anymore, but we are still listening !!!???`
+						);
+					}
+					if ($account.address && single_provider && config.devNetwork?.checkCacheIssues) {
+						nonceCached = await isNonceCached(
+							$account.address,
+							single_provider,
+							config.devNetwork.url
+						);
+						if (!nonceCached) {
 							setNetwork({ nonceCached });
 						}
 					}
@@ -588,25 +581,39 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 	}
 
-	async function listenForGeneisCacheCleared(skipFirst?: boolean) {
-		// TODO stop on network changes
+	async function listenForBlocksCacheCleared(chainId: string, skipFirst?: boolean) {
 		let genesisNotMatching = $network.genesisNotMatching;
-		while (genesisNotMatching && $network.chainId && $network.genesisHash) {
-			if (skipFirst) {
-				skipFirst = false;
-			} else {
-				if (!$state.provider) {
-					logger.error(`pollChainChanged: no provider anymore, but we are still listening !!!???`);
-				}
-				if ($account.address && single_provider && config.devNetwork?.checkGenesis) {
-					const genesisStatus = await checkGenesis(single_provider, config.devNetwork.url);
-					genesisNotMatching = !genesisStatus.matching;
-					if (genesisStatus.matching) {
-						recordNewGenesis($network.chainId, $network.genesisHash);
-						setNetwork({ genesisNotMatching: false, genesisChanged: false });
+		let blocksCached = $network.blocksCached;
+		while (genesisNotMatching || blocksCached) {
+			if ($network.chainId == chainId) {
+				if (skipFirst) {
+					skipFirst = false;
+				} else {
+					if (!$state.provider) {
+						logger.error(
+							`pollChainChanged: no provider anymore, but we are still listening !!!???`
+						);
+					}
+					if (single_provider && config.devNetwork?.checkCacheIssues) {
+						const genesisStatus = await checkGenesis(single_provider, config.devNetwork.url);
+						genesisNotMatching = !genesisStatus.matching;
+						const blockHeight = await checkBlockHeight(single_provider, config.devNetwork.url);
+						blocksCached = !blockHeight.matching;
+						if (
+							$network.genesisNotMatching === genesisStatus.matching ||
+							$network.blocksCached === blockHeight.matching
+						) {
+							setNetwork({
+								genesisNotMatching: !genesisStatus.matching,
+								blocksCached: !blockHeight.matching,
+							});
+						}
 					}
 				}
+			} else {
+				break; // we can leave here, we ll be back once the chainId is back
 			}
+
 			await wait(1000); // TODO config
 		}
 	}
@@ -968,17 +975,22 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		let loadCounterUsed = loadCounter;
 		// let counter = ++accountUpdateCounter;
 		if (address) {
-			if (config.devNetwork?.checkGenesis && config.devNetwork.chainId === newChainId) {
-				if (!single_provider) {
-					throw new Error(`no provider`);
-				}
+			let chainIdToCheck = newChainId || $network.chainId;
+			if (!single_provider) {
+				throw new Error(`no provider`);
+			}
+			if (!chainIdToCheck) {
+				const chainIdHex = await single_provider.request({ method: 'eth_chainId' });
+				chainIdToCheck = parseInt(chainIdHex.slice(2), 16).toString();
+			}
+			if (config.devNetwork?.checkCacheIssues && config.devNetwork.chainId === chainIdToCheck) {
 				logger.info(`checking nonce...`);
 				const nonceCached = await isNonceCached(address, single_provider, config.devNetwork.url);
 				if (nonceCached) {
 					console.error(`nonce not matching, your provider is caching wrong info`);
 				}
 				setNetwork({ nonceCached });
-				listenForNonceCacheCleared(true);
+				listenForNonceCacheCleared(chainIdToCheck, true);
 			}
 
 			if (config.acccountData) {
@@ -1711,17 +1723,13 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		network: {
 			...readableNetwork,
 			switchTo,
-			async acknowledgeNewGenesis() {
-				if ($network.chainId && $network.genesisHash) {
-					recordNewGenesis($network.chainId, $network.genesisHash);
-					setNetwork({
-						genesisChanged: false,
-					});
-				}
-			},
 			async notifyThatCacheHasBeenCleared() {
-				listenForGeneisCacheCleared();
-				listenForNonceCacheCleared();
+				if ($network.chainId) {
+					listenForBlocksCacheCleared($network.chainId);
+					listenForNonceCacheCleared($network.chainId);
+				} else {
+					throw new Error(`no chainId connected, cannot check for nonce or genesis cache issue`);
+				}
 			},
 		},
 		account: {

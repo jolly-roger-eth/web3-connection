@@ -77,8 +77,8 @@ type BaseNetworkState = {
 
 	genesisHash?: string;
 	genesisNotMatching?: boolean;
-	genesisChanged?: boolean;
 	nonceCached?: NonceCachedStatus;
+	blocksCached?: boolean;
 };
 
 export type DisconectedNetworkState = BaseNetworkState & {
@@ -194,6 +194,6 @@ export type ConnectionConfig<
 	devNetwork?: {
 		chainId: string;
 		url: string;
-		checkGenesis?: boolean;
+		checkCacheIssues?: boolean;
 	};
 };

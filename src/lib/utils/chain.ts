@@ -29,7 +29,7 @@ export async function checkGenesis(
 		.then((response) => response.json())
 		.then((response) => response.result);
 
-	const matching = genesisBlockFromProvider.hash === genesisBlockFromNode.hash;
+	const matching = genesisBlockFromProvider?.hash === genesisBlockFromNode.hash;
 	if (!matching) {
 		console.error(
 			`different genesis returned from the provider: it most likely has cached the result and need to be reset`
@@ -37,6 +37,42 @@ export async function checkGenesis(
 	}
 
 	return { matching, hash: genesisBlockFromNode.hash };
+}
+
+export async function checkBlockHeight(
+	provider: EIP1193ProviderWithoutEvents,
+	rpcURL: string
+): Promise<{ matching: boolean; number: number }> {
+	// we then fetch from node first
+	const blockHeightFromNodeAsHex = await fetch(rpcURL, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			id: Date.now(),
+			jsonrpc: '2.0',
+			method: 'eth_blockNumber',
+		}),
+	})
+		.then((response) => response.json())
+		.then((response) => response.result);
+
+	const blockHeightFromProviderAsHex = await provider.request({
+		method: 'eth_blockNumber',
+	});
+
+	const blockHeightFromProvider = parseInt(blockHeightFromProviderAsHex.slice(2), 16);
+	const blockHeightFromNode = parseInt(blockHeightFromNodeAsHex.slice(2), 16);
+
+	const matching = blockHeightFromProvider <= blockHeightFromNode;
+	if (!matching) {
+		console.error(
+			`blockHeightFromProvider (${blockHeightFromProvider}) > blockHeightFromNode (${blockHeightFromNode}): it most likely has cached the result and need to be reset`
+		);
+	}
+
+	return { matching, number: blockHeightFromNode };
 }
 
 export type NonceCachedStatus = 'cache' | 'BlockOutOfRangeError' | false;
@@ -56,7 +92,11 @@ export async function isNonceCached(
 			})
 			.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
 	} catch (err: any) {
-		if (err.code === -32603 && err.message.indexOf('BlockOutOfRangeError') >= 0) {
+		if (
+			err.code === -32603 &&
+			(err.message.indexOf('BlockOutOfRangeError') >= 0 ||
+				err.message.indexOf('Received invalid block tag') >= 0)
+		) {
 			return 'BlockOutOfRangeError';
 		}
 		console.error(`failed to get lowercase account's nonce from provider`, err);
@@ -70,7 +110,11 @@ export async function isNonceCached(
 			})
 			.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
 	} catch (err: any) {
-		if (err.code === -32603 && err.message.indexOf('BlockOutOfRangeError') >= 0) {
+		if (
+			err.code === -32603 &&
+			(err.message.indexOf('BlockOutOfRangeError') >= 0 ||
+				err.message.indexOf('Received invalid block tag') >= 0)
+		) {
 			return 'BlockOutOfRangeError';
 		}
 		console.error(`failed to get account's nonce from provider`, err);
@@ -113,28 +157,4 @@ export async function isNonceCached(
 	return nonceFromNode < nonceFromProvider || nonceFromNode < nonceFromProviderLowerCase
 		? 'cache'
 		: false;
-}
-
-export function hasTrackedGenesisChanged(chainId: string, genesisHash: string): boolean {
-	try {
-		const key = `_genesis_${chainId}`;
-		const previous = localStorage.getItem(key);
-		if (previous) {
-			if (previous !== genesisHash) {
-				console.warn(`network reset detected`);
-				return true;
-			}
-		} else {
-			localStorage.setItem(key, genesisHash);
-		}
-	} catch {}
-	return false;
-}
-
-export function recordNewGenesis(chainId: string, genesisHash: string): boolean {
-	try {
-		const key = `_genesis_${chainId}`;
-		localStorage.setItem(key, genesisHash);
-	} catch {}
-	return false;
 }

@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.10
+
+### Patch Changes
+
+- improve cache detection
+
 ## 0.1.9
 
 ### Patch Changes
