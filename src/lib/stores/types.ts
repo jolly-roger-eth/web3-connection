@@ -79,6 +79,7 @@ type BaseNetworkState = {
 	genesisNotMatching?: boolean;
 	nonceCached?: NonceCachedStatus;
 	blocksCached?: boolean;
+	hasEncounteredBlocksCacheIssue?: boolean;
 };
 
 export type DisconectedNetworkState = BaseNetworkState & {

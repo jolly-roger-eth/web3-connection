@@ -158,3 +158,28 @@ export async function isNonceCached(
 		? 'cache'
 		: false;
 }
+
+export function hasPreviouslyEncounteredBlocksCacheIssue(chainId: string): boolean {
+	try {
+		const key = `_web3_connection_cache_issues_${chainId}`;
+		const previous = localStorage.getItem(key);
+		return previous ? true : false;
+	} catch {}
+	return false;
+}
+
+export function recordBlockCacheIssue(chainId: string): boolean {
+	try {
+		const key = `_web3_connection_cache_issues_${chainId}`;
+		localStorage.setItem(key, 'true');
+	} catch {}
+	return false;
+}
+
+export function acknowledgeBlockCacheIssue(chainId: string): boolean {
+	try {
+		const key = `_web3_connection_cache_issues_${chainId}`;
+		localStorage.removeItem(key);
+	} catch {}
+	return false;
+}

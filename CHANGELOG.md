@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.11
+
+### Patch Changes
+
+- acknowledgeBlockCacheIssue
+
 ## 0.1.10
 
 ### Patch Changes

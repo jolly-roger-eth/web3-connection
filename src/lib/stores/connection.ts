@@ -22,7 +22,14 @@ import type {
 import { createRPCProvider } from '$lib/provider/rpc';
 import { initEmitter } from '$lib/external/callbacks';
 import type { EIP1193ProviderWithBlocknumberSubscription } from '$lib/provider/types';
-import { checkBlockHeight, checkGenesis, isNonceCached } from '$lib/utils/chain';
+import {
+	acknowledgeBlockCacheIssue,
+	checkBlockHeight,
+	checkGenesis,
+	hasPreviouslyEncounteredBlocksCacheIssue,
+	isNonceCached,
+	recordBlockCacheIssue,
+} from '$lib/utils/chain';
 import type { Address } from 'abitype';
 import type {
 	AccountState,
@@ -370,10 +377,16 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				logger.info(`checking genesis...`);
 				const genesis = await checkGenesis(single_provider, config.devNetwork.url);
 				const blockHeight = await checkBlockHeight(single_provider, config.devNetwork.url);
+				let hasEncounteredBlocksCacheIssue = hasPreviouslyEncounteredBlocksCacheIssue(chainId);
+				if (!genesis.matching || !blockHeight.matching) {
+					recordBlockCacheIssue(chainId);
+					hasEncounteredBlocksCacheIssue = true;
+				}
 				setNetwork({
 					genesisNotMatching: !genesis.matching,
 					genesisHash: genesis.hash,
 					blocksCached: !blockHeight.matching,
+					hasEncounteredBlocksCacheIssue,
 				});
 				if (!genesis.matching || !blockHeight.matching) {
 					listenForBlocksCacheCleared(chainId, true);
@@ -988,6 +1001,10 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				const nonceCached = await isNonceCached(address, single_provider, config.devNetwork.url);
 				if (nonceCached) {
 					console.error(`nonce not matching, your provider is caching wrong info`);
+				}
+				if (nonceCached === 'BlockOutOfRangeError') {
+					recordBlockCacheIssue(chainIdToCheck);
+					setNetwork({ hasEncounteredBlocksCacheIssue: true });
 				}
 				setNetwork({ nonceCached });
 				listenForNonceCacheCleared(chainIdToCheck, true);
@@ -1723,6 +1740,16 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		network: {
 			...readableNetwork,
 			switchTo,
+			async acknowledgeBlockCacheIssue() {
+				if ($network.chainId) {
+					acknowledgeBlockCacheIssue($network.chainId);
+					setNetwork({
+						hasEncounteredBlocksCacheIssue: false,
+					});
+				} else {
+					throw new Error(`no chainId`);
+				}
+			},
 			async notifyThatCacheHasBeenCleared() {
 				if ($network.chainId) {
 					listenForBlocksCacheCleared($network.chainId);
