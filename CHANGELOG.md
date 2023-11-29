@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.12
+
+### Patch Changes
+
+- fix blockNumber emitting on pending
+
 ## 0.1.11
 
 ### Patch Changes

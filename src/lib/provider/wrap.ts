@@ -318,12 +318,12 @@ export function wrapProvider(
 		switch (args.method) {
 			case 'eth_getBlockByNumber':
 				const blockByNumber: EIP1193Block = await _request(args);
-				if (blockByNumber) {
-					emitNewBlockIfNotAlreadyEmitted &&
-						emitNewBlockIfNotAlreadyEmitted(parseInt(blockByNumber.number.slice(2), 16));
-				}
 
 				if (args.params[0] === 'latest') {
+					if (blockByNumber && blockByNumber.number) {
+						emitNewBlockIfNotAlreadyEmitted &&
+							emitNewBlockIfNotAlreadyEmitted(parseInt(blockByNumber.number.slice(2), 16));
+					}
 					syncTime(blockByNumber as EIP1193Block);
 				}
 				return blockByNumber;
