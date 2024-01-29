@@ -309,7 +309,7 @@ export function wrapProvider(
 	}
 
 	async function request(args: EIP1193Request) {
-		if (args.method !== 'eth_chainId' && !_syncTime) {
+		if (args.method !== 'eth_chainId' && args.method !== 'eth_accounts' && !_syncTime) {
 			await syncTime();
 		}
 

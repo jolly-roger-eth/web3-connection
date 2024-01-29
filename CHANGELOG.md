@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.17
+
+### Patch Changes
+
+- do not sync for eth_accounts + better messages
+
 ## 0.1.16
 
 ### Patch Changes

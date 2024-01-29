@@ -683,7 +683,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				contracts: undefined,
 			});
 			set({
-				error: { message: 'failed to fetch chainId', cause: err },
+				error: { message: 'Could not fetch chainId', cause: err },
 			});
 			throw err;
 		}
@@ -1244,7 +1244,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			// }
 		} catch (err) {
 			set({
-				error: { message: 'failed to fetch accounts', cause: err }, // TODO remove $account.error and $network.error ?
+				error: { message: 'Error while fetching accounts, Check your wallet.', cause: err }, // TODO remove $account.error and $network.error ?
 			});
 			_connect.reject(['connection+account', 'connection+network+account'], err);
 			throw err;
