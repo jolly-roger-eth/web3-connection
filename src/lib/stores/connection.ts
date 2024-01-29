@@ -49,7 +49,7 @@ import type {
 	Parameters,
 	ParametersPerNetwork,
 } from './types';
-import { timeoutRequest, type Timeout } from './utils.ts';
+import { timeoutRequest, type Timeout } from './utils';
 
 const logger = logs('web3-connection');
 
@@ -213,7 +213,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		let timer_lastBlockTime: number | undefined;
 		// let timer_lastCurrenTime: number | undefined;
 		let timer_lastChainId: string | undefined;
-		let pending_request: Promise<EIP1193Block> | undefined;
+		let pending_request: Promise<EIP1193Block | null> | undefined;
 		async function checkLatestBlock() {
 			if (!pending_request && $network.chainId) {
 				pending_request = provider.request({

@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.18
+
+### Patch Changes
+
+- timeout on any request using sync
+
 ## 0.1.17
 
 ### Patch Changes

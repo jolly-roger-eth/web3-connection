@@ -9,6 +9,8 @@ import type {
 } from './types';
 
 import { logs } from 'named-logs';
+import type { Timeout } from '$lib/stores/utils';
+
 const logger = logs('web3-connection:provider');
 
 export function multiObersvers(oberserversList: EIP1193Observers[]): EIP1193Observers {
@@ -115,20 +117,7 @@ export function wrapProvider(
 		return newBlock;
 	}
 
-	async function syncTime(latestBlockTime?: number | EIP1193Block) {
-		if (!latestBlockTime) {
-			const latestBlock = await _request<EIP1193Block>({
-				method: 'eth_getBlockByNumber',
-				params: ['latest', false],
-			});
-			const blockTime = parseInt(latestBlock.timestamp.slice(2), 16);
-			latestBlockTime = blockTime;
-			emitNewBlockIfNotAlreadyEmitted && emitNewBlockIfNotAlreadyEmitted(latestBlockTime);
-		} else if (typeof latestBlockTime !== 'number') {
-			const blockTime = parseInt(latestBlockTime.timestamp.slice(2), 16);
-			latestBlockTime = blockTime;
-		}
-
+	function now(latestBlockTime: number) {
 		const localTimestamp = Date.now();
 		const discrepancy = localTimestamp - latestBlockTime * 1000;
 		if (errorOnTimeDifference) {
@@ -151,6 +140,50 @@ export function wrapProvider(
 		_syncTime = latestBlockTime * 1000 - performanceNow;
 
 		return currentTime();
+	}
+
+	function syncTime(latestBlockTime?: number | EIP1193Block) {
+		const delay = 2;
+		return new Promise<number>((resolve, reject) => {
+			let timeout: Timeout | undefined = setTimeout(() => {
+				logger.error(`sync request timed out after ${delay} second`);
+				timeout = undefined;
+				reject(`sync request timed out after ${delay} seconds`);
+			}, delay * 1000);
+
+			if (!latestBlockTime) {
+				_request<EIP1193Block>({
+					method: 'eth_getBlockByNumber',
+					params: ['latest', false],
+				})
+					.then((latestBlock) => {
+						if (timeout) {
+							clearTimeout(timeout);
+							timeout = undefined;
+
+							const blockTime = parseInt(latestBlock.timestamp.slice(2), 16);
+							latestBlockTime = blockTime;
+							emitNewBlockIfNotAlreadyEmitted && emitNewBlockIfNotAlreadyEmitted(latestBlockTime);
+
+							resolve(now(latestBlockTime));
+						}
+					})
+					.catch((err) => {
+						if (timeout) {
+							clearTimeout(timeout);
+							timeout = undefined;
+							reject(err);
+						}
+					});
+			} else {
+				if (typeof latestBlockTime !== 'number') {
+					const blockTime = parseInt(latestBlockTime.timestamp.slice(2), 16);
+					latestBlockTime = blockTime;
+				}
+
+				resolve(now(latestBlockTime));
+			}
+		});
 	}
 
 	let currentObservers: EIP1193Observers | undefined = observers;
