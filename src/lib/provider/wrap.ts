@@ -75,7 +75,8 @@ export function wrapProvider(
 	providerToWrap: EIP1193Provider,
 	observers: EIP1193Observers,
 	config?: WrappProviderConfig,
-	emitNewBlockIfNotAlreadyEmitted?: (blockNumber: number) => void
+	emitNewBlockIfNotAlreadyEmitted?: (blockNumber: number) => void,
+	onTimeout: (err: string) => void
 ): Web3ConnectionProvider {
 	const errorOnTimeDifference =
 		config?.errorOnTimeDifference === false
@@ -148,6 +149,7 @@ export function wrapProvider(
 			let timeout: Timeout | undefined = setTimeout(() => {
 				logger.error(`sync request timed out after ${delay} second`);
 				timeout = undefined;
+				onTimeout(`sync request timed out after ${delay} seconds`);
 				reject(`sync request timed out after ${delay} seconds`);
 			}, delay * 1000);
 

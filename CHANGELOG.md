@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.19
+
+### Patch Changes
+
+- onTimeout error
+
 ## 0.1.18
 
 ### Patch Changes

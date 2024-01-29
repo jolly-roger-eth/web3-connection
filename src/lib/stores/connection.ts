@@ -284,6 +284,12 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 	}
 
+	function onTimeout(err: string) {
+		set({
+			error: { message: err },
+		});
+	}
+
 	const observers = config.observers
 		? multiObersvers([config.observers, observersForPendingActions])
 		: observersForPendingActions;
@@ -298,7 +304,8 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				ethereum,
 				observers,
 				config.provider,
-				emitNewBlockIfNotAlreadyEmitted
+				emitNewBlockIfNotAlreadyEmitted,
+				onTimeout
 			);
 		} else {
 			old_provider = single_provider.underlyingProvider;
