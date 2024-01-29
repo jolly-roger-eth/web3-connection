@@ -122,6 +122,7 @@ export type ConnectedAccountState<TAddress extends Address> = BaseAccountState &
 	state: 'Connected';
 	locked: false;
 	unlocking: false;
+	fetching: false;
 	address: TAddress;
 	isLoadingData: undefined;
 	loadingStep: undefined;
@@ -131,6 +132,7 @@ export type DisconnectedAccountState<TAddress extends Address> = BaseAccountStat
 	state: 'Disconnected';
 	locked: boolean;
 	unlocking: boolean;
+	fetching: boolean;
 	address?: TAddress;
 	isLoadingData?: string;
 	loadingStep?: { id: string; data?: any };

@@ -136,6 +136,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		readable: readableAccount,
 	} = createStore<AccountState<Address>>({
 		state: 'Disconnected',
+		fetching: false,
 		locked: false,
 		unlocking: false,
 	});
@@ -1209,8 +1210,22 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		try {
 			try {
 				logger.info(`fetching accounts...`);
-				accounts = await provider.request({ method: 'eth_accounts' });
+				setAccount({
+					fetching: true,
+				});
+				const networkParams: Parameters = {
+					defaultParams,
+					...($network.chainId ? parameters[$network.chainId] : parameters.default),
+				} as any;
+				const timeout = networkParams.timeout;
+				accounts = await timeoutRequest(provider, { method: 'eth_accounts' }, timeout);
+				setAccount({
+					fetching: false,
+				});
 			} catch (err) {
+				setAccount({
+					fetching: false,
+				});
 				const errWithCode = err as { code: number; message: string };
 				if (errWithCode.code === 4100) {
 					logger.info(`4100 ${errWithCode.message || (errWithCode as any).name}`); // TOCHECK why name here ?
