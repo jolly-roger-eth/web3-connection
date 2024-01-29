@@ -12,7 +12,7 @@ export function timeoutRequest<T>(
 ): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		let timeout: Timeout | undefined = setTimeout(() => {
-			logger.error(`request timed out after ${delay} second`);
+			logger.error(`request timed out after ${delay} second`, { provider, request });
 			timeout = undefined;
 			reject(`request timed out after ${delay} seconds`);
 		}, delay * 1000);

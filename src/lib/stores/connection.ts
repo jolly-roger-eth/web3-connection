@@ -920,10 +920,10 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					await fetchAndSetChainId();
 				}
 			} catch (err) {
-				logger.log(`could not fetch chainId`);
+				logger.log(`could not fetch chainId, even after asking to request accounts`);
 
 				const error = {
-					message: `Could not connect to your wallet. You might need to reload the page.`,
+					message: `Could not connect to your wallet. Verify your node or remote RPC is not down.`,
 					cause: err,
 				};
 				// cannot fetch chainId, this means we are not connected
