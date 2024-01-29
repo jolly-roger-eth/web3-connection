@@ -144,16 +144,16 @@ export function wrapProvider(
 	}
 
 	function syncTime(latestBlockTime?: number | EIP1193Block) {
-		const delay = 2;
 		return new Promise<number>((resolve, reject) => {
-			let timeout: Timeout | undefined = setTimeout(() => {
-				logger.error(`sync request timed out after ${delay} second`);
-				timeout = undefined;
-				onTimeout && onTimeout(`sync request timed out after ${delay} seconds`);
-				reject(`sync request timed out after ${delay} seconds`);
-			}, delay * 1000);
-
 			if (!latestBlockTime) {
+				const delay = 2;
+				let timeout: Timeout | undefined = setTimeout(() => {
+					logger.error(`sync request timed out after ${delay} second`);
+					timeout = undefined;
+					onTimeout && onTimeout(`sync request timed out after ${delay} seconds`);
+					reject(`sync request timed out after ${delay} seconds`);
+				}, delay * 1000);
+
 				_request<EIP1193Block>({
 					method: 'eth_getBlockByNumber',
 					params: ['latest', false],
@@ -350,6 +350,7 @@ export function wrapProvider(
 		'eth_accounts',
 		'wallet_switchEthereumChain',
 		'wallet_addEthereumChain',
+		'eth_call',
 	];
 	async function request(args: EIP1193Request) {
 		if (methodsThatShouldSkipTimeSync.indexOf(args.method) === -1 && !_syncTime) {
