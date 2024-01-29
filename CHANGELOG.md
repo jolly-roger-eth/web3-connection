@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.20
+
+### Patch Changes
+
+- better error + more no-sync request
+
 ## 0.1.19
 
 ### Patch Changes

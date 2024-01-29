@@ -286,7 +286,10 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 
 	function onTimeout(err: string) {
 		set({
-			error: { message: err },
+			error: {
+				message:
+					'Request to your wallet are timing out. Please make sure you are connected to a node / RPC and that it is now down.',
+			},
 		});
 	}
 

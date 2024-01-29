@@ -76,7 +76,7 @@ export function wrapProvider(
 	observers: EIP1193Observers,
 	config?: WrappProviderConfig,
 	emitNewBlockIfNotAlreadyEmitted?: (blockNumber: number) => void,
-	onTimeout: (err: string) => void
+	onTimeout?: (err: string) => void
 ): Web3ConnectionProvider {
 	const errorOnTimeDifference =
 		config?.errorOnTimeDifference === false
@@ -149,7 +149,7 @@ export function wrapProvider(
 			let timeout: Timeout | undefined = setTimeout(() => {
 				logger.error(`sync request timed out after ${delay} second`);
 				timeout = undefined;
-				onTimeout(`sync request timed out after ${delay} seconds`);
+				onTimeout && onTimeout(`sync request timed out after ${delay} seconds`);
 				reject(`sync request timed out after ${delay} seconds`);
 			}, delay * 1000);
 
@@ -343,8 +343,16 @@ export function wrapProvider(
 		}
 	}
 
+	const methodsThatShouldSkipTimeSync = [
+		'eth_getBlockByNumber',
+		'eth_blockNumber',
+		'eth_chainId',
+		'eth_accounts',
+		'wallet_switchEthereumChain',
+		'wallet_addEthereumChain',
+	];
 	async function request(args: EIP1193Request) {
-		if (args.method !== 'eth_chainId' && args.method !== 'eth_accounts' && !_syncTime) {
+		if (methodsThatShouldSkipTimeSync.indexOf(args.method) === -1 && !_syncTime) {
 			await syncTime();
 		}
 
