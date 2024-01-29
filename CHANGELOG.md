@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.13
+
+### Patch Changes
+
+- timeout tweaks + configuration
+
 ## 0.1.12
 
 ### Patch Changes

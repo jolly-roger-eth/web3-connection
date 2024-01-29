@@ -70,10 +70,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 		return m;
 	});
-	const defaultParams = {
-		finality: 12,
-		blockTime: 5,
-	};
+	const defaultParams =
+		config.parameters && 'default' in config.parameters
+			? config.parameters.default
+			: {
+					finality: 12,
+					blockTime: 5,
+					timeout: 2,
+			  };
 	const parameters: ParametersPerNetwork = config.parameters
 		? 'finality' in config.parameters
 			? {
@@ -646,9 +650,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				notSupported: undefined,
 				contracts: undefined,
 			});
-			const chainId =
-				$state.provider &&
-				(await timeoutRequest<EIP1193ChainId>($state.provider, { method: 'eth_chainId' }));
+			let chainId: string | undefined;
+			if ($state.provider) {
+				chainId = await timeoutRequest<EIP1193ChainId>(
+					$state.provider,
+					{ method: 'eth_chainId' },
+					defaultParams.timeout
+				);
+			}
 			if (chainId) {
 				const chainIdAsDecimal = formatChainId(chainId);
 				setNetwork({
@@ -902,7 +911,11 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				} catch {
 					// we fallback on fetching account
 					logger.info(`falling back on requesting access...`);
-					await timeoutRequest($state.provider, { method: 'eth_requestAccounts' });
+					await timeoutRequest(
+						$state.provider,
+						{ method: 'eth_requestAccounts' },
+						defaultParams.timeout
+					);
 					logger.info(`fetching chainId again...`);
 					await fetchAndSetChainId();
 				}
@@ -1414,6 +1427,12 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 								))
 						) {
 							set({
+								// TODO auto-aknowledge error like this when they can be resolved by chnage of state
+								// in that case, if the wallet get unlocked, then this message should disapear
+								// IMPLEMENATION IDEAS :
+								//  Use a internal error type here: "unlocking-error"
+								// then add a utility function resolveError that can be called by unlock:
+								// autoResolveError("unlocking-error");
 								error: {
 									message: `To unlock your wallet, please click on the Metamask add-on's icon and unlock from there.`,
 								},

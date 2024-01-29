@@ -164,6 +164,7 @@ export type ExecutionState = {
 export type Parameters = {
 	finality: number;
 	blockTime: number;
+	timeout: number;
 };
 
 export type ParametersPerNetwork = { default: Parameters; [chainId: string]: Parameters };
