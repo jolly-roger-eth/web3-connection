@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.22
+
+### Patch Changes
+
+- expose module types
+
 ## 0.1.21
 
 ### Patch Changes
