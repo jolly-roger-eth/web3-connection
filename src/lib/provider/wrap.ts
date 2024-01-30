@@ -524,7 +524,6 @@ export function wrapProvider(
 					case 'waitNewBlock':
 					case 'unsetObservers':
 					case 'setUnderlyingProvider':
-					case 'underlyingProvider':
 						return (target as any)[property];
 				}
 				return (ethereum as any)[property];
