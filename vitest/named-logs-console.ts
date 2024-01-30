@@ -1,3 +1,3 @@
-import { logs } from 'named-logs-console';
-logs.enable('*');
-logs.level = 6;
+import { factory } from 'named-logs-console';
+factory.enable('*');
+factory.level = 6;
