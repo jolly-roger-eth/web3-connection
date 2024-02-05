@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.23
+
+### Patch Changes
+
+- parse as Number without slice
+
 ## 0.1.22
 
 ### Patch Changes

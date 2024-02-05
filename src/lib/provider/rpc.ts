@@ -81,7 +81,7 @@ export function createRPCProvider(config: { chainId: string; url: string }): Def
 
 	chainIdPromise = request({ method: 'eth_chainId' });
 	chainIdPromise.then((v) => {
-		const chainId = parseInt(v.slice(2), 16).toString();
+		const chainId = Number(v).toString();
 		if (chainId !== chainIdExpected) {
 			throw new Error(`unexpected chainId: ${chainId} vs expected: ${chainIdExpected}`);
 		}

@@ -86,7 +86,7 @@ export function initUser() {
 						return;
 					case 'wallet_switchEthereumChain':
 						// TODO wallet_addEthereumChain
-						const chainIdRequested = parseInt(request.params[0].chainId.slice(2), 16).toString();
+						const chainIdRequested = Number(request.params[0].chainId).toString();
 						if (current_chain && current_chain === chainIdRequested) {
 							return resolve(undefined);
 						}
@@ -135,7 +135,7 @@ export function initUser() {
 			if (lastConnectedAccount) {
 				locked = false;
 				emitter.dispatchEvent(
-					new CustomEvent('accountsChanged', { detail: [lastConnectedAccount] })
+					new CustomEvent('accountsChanged', { detail: [lastConnectedAccount] }),
 				);
 			} else {
 				throw new Error(`cannot unlock, no account`);

@@ -13,7 +13,7 @@ type Listener<Message> = (message: Message) => unknown | Promise<unknown>;
 export function createSubscriptionHandler(
 	types: ('newHeads' | 'newBlocknumber')[],
 	onStart: (value: ReturnType<typeof createSubscriptionHandler>) => void,
-	onStop: () => void
+	onStop: () => void,
 ) {
 	const listeners: Listener<EIP1193SubscriptionMessage>[] = [];
 	const subscriptions = new Map();
@@ -27,7 +27,7 @@ export function createSubscriptionHandler(
 		if (types.indexOf(type as any) === -1) {
 			throw new ProviderRpcError(
 				`this provider do not support subscription of type "${type}".`,
-				4200
+				4200,
 			);
 		}
 
@@ -47,7 +47,7 @@ export function createSubscriptionHandler(
 		if (!type) {
 			throw new ProviderRpcError(
 				`subcription ${id} do not exists or has already been unsubscribed`,
-				4000
+				4000,
 			); // TODO code ?
 		}
 		const currentSubscriptionsByType = subscriptions.get(type);
@@ -65,7 +65,7 @@ export function createSubscriptionHandler(
 		if (event !== 'message') {
 			throw new ProviderRpcError(
 				`this provider do not support subscription of event of type "${event}". It currently only support the "message" type after subscription via "eth_subscribe"`,
-				4200
+				4200,
 			);
 		}
 		const index = listeners.indexOf(listener);
@@ -80,7 +80,7 @@ export function createSubscriptionHandler(
 		if (event !== 'message') {
 			throw new ProviderRpcError(
 				`this provider do not support subscription of event of type "${event}". It currently only support the "message" type after subscription via "eth_subscribe"`,
-				4200
+				4200,
 			);
 		}
 		const index = listeners.indexOf(listener);
@@ -147,7 +147,7 @@ export function createSubscriptionHandler(
 export type Poller<
 	T extends (type: any, data: any) => void =
 		| ((type: 'newHeads', data: EIP1193Block) => void)
-		| ((type: 'newBlocknumber', data: EIP1193DATA) => void)
+		| ((type: 'newBlocknumber', data: EIP1193DATA) => void),
 > = {
 	start: (broadcast: T) => void;
 	stop: () => void;
@@ -156,23 +156,23 @@ export type Poller<
 export function createBlockPoller(
 	provider: EIP1193ProviderWithoutEvents,
 	type: 'newHeads',
-	intervalInMs: number
+	intervalInMs: number,
 ): Poller<(type: 'newHeads', data: EIP1193Block) => void>;
 export function createBlockPoller(
 	provider: EIP1193ProviderWithoutEvents,
 	type: 'newBlocknumber',
-	intervalInMs: number
+	intervalInMs: number,
 ): Poller<(type: 'newBlocknumber', data: EIP1193DATA) => void>;
 export function createBlockPoller(
 	provider: EIP1193ProviderWithoutEvents,
 	type: 'newBlocknumber' | 'newHeads',
-	intervalInMs: number
+	intervalInMs: number,
 ): Poller {
 	let _broadcast: any | undefined;
 
 	async function sync() {
 		const blockNumberAsHex = await provider.request({ method: 'eth_blockNumber' });
-		const blockNumber = parseInt(blockNumberAsHex.slice(2), 16);
+		const blockNumber = Number(blockNumberAsHex);
 
 		try {
 			const numBlockToFetch = blockNumber - lastBlockNumber;
@@ -216,7 +216,7 @@ export function createBlockPoller(
 	async function promiseToStart() {
 		try {
 			const blockNumberAsHex = await provider.request({ method: 'eth_blockNumber' });
-			lastBlockNumber = parseInt(blockNumberAsHex.slice(2), 16);
+			lastBlockNumber = Number(blockNumberAsHex);
 			if (!_stopped) {
 				syncNextTime();
 			}

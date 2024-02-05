@@ -5,7 +5,7 @@ const logger = logs('web3-connection:chains');
 
 export async function checkGenesis(
 	provider: EIP1193ProviderWithoutEvents,
-	rpcURL: string
+	rpcURL: string,
 ): Promise<{ matching: boolean; hash: string }> {
 	// we fetch from the provider
 	// this might cache it
@@ -32,7 +32,7 @@ export async function checkGenesis(
 	const matching = genesisBlockFromProvider?.hash === genesisBlockFromNode.hash;
 	if (!matching) {
 		console.error(
-			`different genesis returned from the provider: it most likely has cached the result and need to be reset`
+			`different genesis returned from the provider: it most likely has cached the result and need to be reset`,
 		);
 	}
 
@@ -41,7 +41,7 @@ export async function checkGenesis(
 
 export async function checkBlockHeight(
 	provider: EIP1193ProviderWithoutEvents,
-	rpcURL: string
+	rpcURL: string,
 ): Promise<{ matching: boolean; number: number }> {
 	// we then fetch from node first
 	const blockHeightFromNodeAsHex = await fetch(rpcURL, {
@@ -62,13 +62,13 @@ export async function checkBlockHeight(
 		method: 'eth_blockNumber',
 	});
 
-	const blockHeightFromProvider = parseInt(blockHeightFromProviderAsHex.slice(2), 16);
-	const blockHeightFromNode = parseInt(blockHeightFromNodeAsHex.slice(2), 16);
+	const blockHeightFromProvider = Number(blockHeightFromProviderAsHex);
+	const blockHeightFromNode = Number(blockHeightFromNodeAsHex);
 
 	const matching = blockHeightFromProvider <= blockHeightFromNode;
 	if (!matching) {
 		console.error(
-			`blockHeightFromProvider (${blockHeightFromProvider}) > blockHeightFromNode (${blockHeightFromNode}): it most likely has cached the result and need to be reset`
+			`blockHeightFromProvider (${blockHeightFromProvider}) > blockHeightFromNode (${blockHeightFromNode}): it most likely has cached the result and need to be reset`,
 		);
 	}
 
@@ -80,7 +80,7 @@ export type NonceCachedStatus = 'cache' | 'BlockOutOfRangeError' | false;
 export async function isNonceCached(
 	address: `0x${string}`,
 	provider: EIP1193ProviderWithoutEvents,
-	rpcURL: string
+	rpcURL: string,
 ): Promise<NonceCachedStatus | undefined> {
 	let nonceFromProviderLowerCase: number | undefined;
 	try {
@@ -90,7 +90,7 @@ export async function isNonceCached(
 				method: 'eth_getTransactionCount',
 				params: [address.toLowerCase() as `0x${string}`, 'pending'],
 			})
-			.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
+			.then((v) => (typeof v === 'string' ? Number(v) : v));
 	} catch (err: any) {
 		if (
 			err.code === -32603 &&
@@ -108,7 +108,7 @@ export async function isNonceCached(
 				method: 'eth_getTransactionCount',
 				params: [address, 'pending'],
 			})
-			.then((v) => (typeof v === 'string' ? parseInt(v.slice(2), 16) : v));
+			.then((v) => (typeof v === 'string' ? Number(v) : v));
 	} catch (err: any) {
 		if (
 			err.code === -32603 &&
@@ -135,7 +135,7 @@ export async function isNonceCached(
 			}),
 		})
 			.then((response) => response.json())
-			.then((response) => (response.result ? parseInt(response.result.slice(2), 16) : undefined));
+			.then((response) => (response.result ? Number(response.result) : undefined));
 	} catch (err) {
 		console.error(`failed to get account's nonce from node: ${rpcURL}`, err);
 	}

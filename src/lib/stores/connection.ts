@@ -54,7 +54,7 @@ import { timeoutRequest, type Timeout } from './utils';
 const logger = logs('web3-connection');
 
 export function init<ContractsInfos extends GenericContractsInfos>(
-	config: ConnectionConfig<NetworkConfigs<ContractsInfos>, ContractsInfos>
+	config: ConnectionConfig<NetworkConfigs<ContractsInfos>, ContractsInfos>,
 ) {
 	// ----------------------------------------------------------------------------------------------
 	// Arguments Consumption
@@ -77,16 +77,16 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					finality: 12,
 					blockTime: 5,
 					timeout: 2,
-			  };
+				};
 	const parameters: ParametersPerNetwork = config.parameters
 		? 'finality' in config.parameters
 			? {
 					default: config.parameters as Parameters,
-			  }
+				}
 			: (config.parameters as ParametersPerNetwork)
 		: {
 				default: defaultParams,
-		  };
+			};
 	// ----------------------------------------------------------------------------------------------
 
 	// ----------------------------------------------------------------------------------------------
@@ -189,7 +189,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	let subscriptionId: `0x${string}` | undefined;
 	async function handleNewHeads(
 		provider: EIP1193ProviderWithBlocknumberSubscription,
-		oldProvider?: EIP1193ProviderWithBlocknumberSubscription
+		oldProvider?: EIP1193ProviderWithBlocknumberSubscription,
 	) {
 		if (subscriptionId && oldProvider) {
 			oldProvider
@@ -227,14 +227,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				pending_request = undefined;
 				// const currenTime = provider.currentTime();
 
-				const blockNumber = parseInt(block.number.slice(2), 16);
+				const blockNumber = Number(block.number);
 
 				if (
 					$network.chainId !== timer_lastChainId ||
 					!timer_lastBlockNumber ||
 					blockNumber > timer_lastBlockNumber
 				) {
-					const blockTimestamp = parseInt(block.timestamp.slice(2), 16);
+					const blockTimestamp = Number(block.timestamp);
 					timer_lastChainId = $network.chainId;
 					timer_lastBlockNumber = blockNumber;
 					timer_lastBlockTime = blockTimestamp;
@@ -299,7 +299,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 
 	let single_provider: Web3ConnectionProvider | undefined;
 	function createProvider(
-		ethereum: EIP1193ProviderWithBlocknumberSubscription
+		ethereum: EIP1193ProviderWithBlocknumberSubscription,
 	): Web3ConnectionProvider {
 		let old_provider: EIP1193ProviderWithBlocknumberSubscription | undefined;
 		if (!single_provider) {
@@ -308,7 +308,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				observers,
 				config.provider,
 				emitNewBlockIfNotAlreadyEmitted,
-				onTimeout
+				onTimeout,
 			);
 		} else {
 			old_provider = single_provider.underlyingProvider;
@@ -589,14 +589,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				} else {
 					if (!$state.provider) {
 						logger.error(
-							`pollChainChanged: no provider anymore, but we are still listening !!!???`
+							`pollChainChanged: no provider anymore, but we are still listening !!!???`,
 						);
 					}
 					if ($account.address && single_provider && config.devNetwork?.checkCacheIssues) {
 						nonceCached = await isNonceCached(
 							$account.address,
 							single_provider,
-							config.devNetwork.url
+							config.devNetwork.url,
 						);
 						if (!nonceCached) {
 							setNetwork({ nonceCached });
@@ -619,7 +619,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				} else {
 					if (!$state.provider) {
 						logger.error(
-							`pollChainChanged: no provider anymore, but we are still listening !!!???`
+							`pollChainChanged: no provider anymore, but we are still listening !!!???`,
 						);
 					}
 					if (single_provider && config.devNetwork?.checkCacheIssues) {
@@ -666,7 +666,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				chainId = await timeoutRequest<EIP1193ChainId>(
 					$state.provider,
 					{ method: 'eth_chainId' },
-					defaultParams.timeout
+					defaultParams.timeout,
 				);
 			}
 			if (chainId) {
@@ -857,7 +857,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 						requireSelection: false,
 						walletType: { type, name: walletName(type) },
 						provider: createProvider(
-							(moduleSetup as any).eip1193Provider || (moduleSetup as any).web3Provider
+							(moduleSetup as any).eip1193Provider || (moduleSetup as any).web3Provider,
 						),
 					});
 					logger.info(`module setup`);
@@ -925,7 +925,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					await timeoutRequest(
 						$state.provider,
 						{ method: 'eth_requestAccounts' },
-						defaultParams.timeout
+						defaultParams.timeout,
 					);
 					logger.info(`fetching chainId again...`);
 					await fetchAndSetChainId();
@@ -1018,7 +1018,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			}
 			if (!chainIdToCheck) {
 				const chainIdHex = await single_provider.request({ method: 'eth_chainId' });
-				chainIdToCheck = parseInt(chainIdHex.slice(2), 16).toString();
+				chainIdToCheck = Number(chainIdHex).toString();
 			}
 			if (config.devNetwork?.checkCacheIssues && config.devNetwork.chainId === chainIdToCheck) {
 				logger.info(`checking nonce...`);
@@ -1095,7 +1095,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 											.finally(() => {
 												setAccount({ loadingStep: undefined });
 											});
-									}
+									},
 								);
 
 								if (loadCounterUsed != loadCounter) {
@@ -1126,7 +1126,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 							} catch (err) {
 								if (loadCounterUsed != loadCounter) {
 									console.log(
-										`change of address or network, stop right there, ignore loading error`
+										`change of address or network, stop right there, ignore loading error`,
 									);
 									return;
 								}
@@ -1308,7 +1308,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	const _accountLoadingStep = createManageablePromise();
 
 	function connect(
-		requirements: ConnectionRequirements = 'connection+network+account'
+		requirements: ConnectionRequirements = 'connection+network+account',
 	): Promise<boolean> {
 		async function fromDisconnected(type?: string) {
 			set({
@@ -1445,10 +1445,10 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 							errWithCode.code === -32002 &&
 							// TODO do not make this dependent on message but need to ensure 32002 will not be triggered there for other cases
 							(errWithCode.message.includes(
-								'Already processing eth_requestAccounts. Please wait.'
+								'Already processing eth_requestAccounts. Please wait.',
 							) ||
 								errWithCode.message.includes(
-									`Request of type 'wallet_requestPermissions' already pending`
+									`Request of type 'wallet_requestPermissions' already pending`,
 								))
 						) {
 							set({
@@ -1505,7 +1505,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	}
 
 	async function connectAndExecute<T>(
-		callback: ConnectAndExecuteCallback<T>
+		callback: ConnectAndExecuteCallback<T>,
 	): Promise<T | undefined> {
 		if ($state.state === 'Connected') {
 			return callback({
@@ -1531,7 +1531,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	}
 
 	async function execute<T, TAddress extends Address>(
-		callback: ExecuteCallback<ContractsInfos, TAddress, T>
+		callback: ExecuteCallback<ContractsInfos, TAddress, T>,
 		//options?: { requireUserConfirmation?: boolean }
 	): Promise<T | undefined> {
 		setExecution({ executing: true });
@@ -1600,7 +1600,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				symbol: string;
 				decimals: number;
 			};
-		}
+		},
 	) {
 		if (!$state.provider) {
 			// TODO? autoConnect ?
@@ -1628,14 +1628,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			if ((err as any).code === 4001) {
 				logger.info(
 					`wallet_addEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
-					err
+					err,
 				);
 				return;
 			}
 			// if ((err as any).code === 4902) {
 			else if (config && config.rpcUrls && config.rpcUrls.length > 0) {
 				logger.info(
-					`wallet_switchEthereumChain: could not switch, try adding the chain via "wallet_addEthereumChain"`
+					`wallet_switchEthereumChain: could not switch, try adding the chain via "wallet_addEthereumChain"`,
 				);
 				try {
 					const result = await $state.provider.request({
@@ -1667,7 +1667,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					} else {
 						logger.info(
 							`wallet_addEthereumChain: failed but error code === 4001, we ignore as user rejected it`,
-							err
+							err,
 						);
 						return;
 					}

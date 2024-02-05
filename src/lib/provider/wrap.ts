@@ -76,7 +76,7 @@ export function wrapProvider(
 	observers: EIP1193Observers,
 	config?: WrappProviderConfig,
 	emitNewBlockIfNotAlreadyEmitted?: (blockNumber: number) => void,
-	onTimeout?: (err: string) => void
+	onTimeout?: (err: string) => void,
 ): Web3ConnectionProvider {
 	const errorOnTimeDifference =
 		config?.errorOnTimeDifference === false
@@ -85,14 +85,14 @@ export function wrapProvider(
 					threshold: 3_600_000,
 					onlyLog: false,
 					...(config?.errorOnTimeDifference || {}),
-			  };
+				};
 
 	let _syncTime: number | undefined;
 
 	function currentTime() {
 		if (!_syncTime) {
 			throw new Error(
-				`The provider need to be synced with block.timestamp before being able to provide currentTime.`
+				`The provider need to be synced with block.timestamp before being able to provide currentTime.`,
 			);
 		}
 		return Math.floor((performance.now() + _syncTime) / 1000);
@@ -163,7 +163,7 @@ export function wrapProvider(
 							clearTimeout(timeout);
 							timeout = undefined;
 
-							const blockTime = parseInt(latestBlock.timestamp.slice(2), 16);
+							const blockTime = Number(latestBlock.timestamp);
 							latestBlockTime = blockTime;
 							emitNewBlockIfNotAlreadyEmitted && emitNewBlockIfNotAlreadyEmitted(latestBlockTime);
 
@@ -179,7 +179,7 @@ export function wrapProvider(
 					});
 			} else {
 				if (typeof latestBlockTime !== 'number') {
-					const blockTime = parseInt(latestBlockTime.timestamp.slice(2), 16);
+					const blockTime = Number(latestBlockTime.timestamp);
 					latestBlockTime = blockTime;
 				}
 
@@ -210,7 +210,7 @@ export function wrapProvider(
 		args: EIP1193Request,
 		from: string,
 		message: unknown, // TODO type ?
-		metadata?: any
+		metadata?: any,
 	) {
 		metadata = getMetadata(metadata);
 
@@ -251,7 +251,7 @@ export function wrapProvider(
 			}
 		} else if (nextMetadata) {
 			throw new Error(
-				`conflicting metadata, metadata was set via "setNextMetadata" but it was also provided as part of the request data`
+				`conflicting metadata, metadata was set via "setNextMetadata" but it was also provided as part of the request data`,
 			);
 		}
 
@@ -265,14 +265,14 @@ export function wrapProvider(
 			const ethereumSendAsync = ethereum as unknown as {
 				sendAsync: (
 					request: { method: string; params?: Array<any> },
-					callback: (error: any, response: any) => void
+					callback: (error: any, response: any) => void,
 				) => void;
 				enable?(): Promise<T>;
 			};
 			const ethereumSend = ethereum as unknown as {
 				send: (
 					request: { method: string; params?: Array<any> },
-					callback: (error: any, response: any) => void
+					callback: (error: any, response: any) => void,
 				) => void;
 				enable?(): Promise<T>;
 			};
@@ -288,7 +288,7 @@ export function wrapProvider(
 								resolve(
 									(response as any).id && (response as any).result
 										? (response as any).result
-										: response
+										: response,
 								);
 							}
 						});
@@ -306,7 +306,7 @@ export function wrapProvider(
 								resolve(
 									(response as any).id && (response as any).result
 										? (response as any).result
-										: response
+										: response,
 								);
 							}
 						});
@@ -366,7 +366,7 @@ export function wrapProvider(
 				if (args.params[0] === 'latest') {
 					if (blockByNumber && blockByNumber.number) {
 						emitNewBlockIfNotAlreadyEmitted &&
-							emitNewBlockIfNotAlreadyEmitted(parseInt(blockByNumber.number.slice(2), 16));
+							emitNewBlockIfNotAlreadyEmitted(Number(blockByNumber.number));
 					}
 					syncTime(blockByNumber as EIP1193Block);
 				}
@@ -374,8 +374,7 @@ export function wrapProvider(
 			case 'eth_blockNumber':
 				const result: `0x${string}` = await _request(args);
 				if (result) {
-					emitNewBlockIfNotAlreadyEmitted &&
-						emitNewBlockIfNotAlreadyEmitted(parseInt(result.slice(2), 16));
+					emitNewBlockIfNotAlreadyEmitted && emitNewBlockIfNotAlreadyEmitted(Number(result));
 				}
 				return result;
 			case 'eth_sendTransaction':
@@ -404,7 +403,7 @@ export function wrapProvider(
 				// 	logger.info(`tx.nonce = ${tx.nonce}`);
 				// }
 				const metadata = getMetadata(
-					(args as unknown as EIP1193TransactionRequestWithMetadata).params[1]
+					(args as unknown as EIP1193TransactionRequestWithMetadata).params[1],
 				);
 
 				let txWithMetadata = { ...tx, metadata, timestamp: await syncTime() };
@@ -432,7 +431,7 @@ export function wrapProvider(
 					args,
 					args.params[0],
 					args.params[1],
-					getMetadata((args as any).params[2])
+					getMetadata((args as any).params[2]),
 				);
 			case 'personal_sign':
 				// Note: we reverse the order of param here as personal_sign expect from as 2nd param
@@ -440,21 +439,21 @@ export function wrapProvider(
 					args,
 					args.params[1],
 					args.params[0],
-					getMetadata((args as any).params[2])
+					getMetadata((args as any).params[2]),
 				);
 			case 'eth_signTypedData':
 				return handleSignedMessage(
 					args,
 					args.params[0],
 					args.params[1],
-					getMetadata((args as any).params[2])
+					getMetadata((args as any).params[2]),
 				);
 			case 'eth_signTypedData_v4':
 				return handleSignedMessage(
 					args,
 					args.params[0],
 					args.params[1],
-					getMetadata((args as any).params[2])
+					getMetadata((args as any).params[2]),
 				);
 		}
 
@@ -528,6 +527,6 @@ export function wrapProvider(
 				}
 				return (ethereum as any)[property];
 			},
-		}
+		},
 	) as unknown as Web3ConnectionProvider;
 }
