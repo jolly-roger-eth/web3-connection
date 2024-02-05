@@ -241,7 +241,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 
 					emitNewBlockIfNotAlreadyEmitted(blockNumber);
 
-					single_provider?.syncTime(blockTimestamp);
+					single_provider?.syncBlock(block);
 				}
 			}
 		}

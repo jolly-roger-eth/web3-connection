@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.25
+
+### Patch Changes
+
+- syncBlock
+
 ## 0.1.24
 
 ### Patch Changes

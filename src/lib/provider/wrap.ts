@@ -143,7 +143,7 @@ export function wrapProvider(
 		return currentTime();
 	}
 
-	function syncTime(latestBlock?: EIP1193Block) {
+	function syncBlock(latestBlock?: EIP1193Block) {
 		return new Promise<number>((resolve, reject) => {
 			if (!latestBlock) {
 				const delay = 2;
@@ -211,7 +211,7 @@ export function wrapProvider(
 	) {
 		metadata = getMetadata(metadata);
 
-		let messageWithMetadata = { from, message, metadata, timestamp: await syncTime() };
+		let messageWithMetadata = { from, message, metadata, timestamp: await syncBlock() };
 
 		if (currentObservers?.onSignatureRequest) {
 			currentObservers?.onSignatureRequest(messageWithMetadata);
@@ -351,7 +351,7 @@ export function wrapProvider(
 	];
 	async function request(args: EIP1193Request) {
 		if (methodsThatShouldSkipTimeSync.indexOf(args.method) === -1 && !_syncTime) {
-			await syncTime();
+			await syncBlock();
 		}
 
 		// logger.info(`sending request: ${args.method}`);
@@ -365,7 +365,7 @@ export function wrapProvider(
 						emitNewBlockIfNotAlreadyEmitted &&
 							emitNewBlockIfNotAlreadyEmitted(Number(blockByNumber.number));
 					}
-					syncTime(blockByNumber as EIP1193Block);
+					syncBlock(blockByNumber as EIP1193Block);
 				}
 				return blockByNumber;
 			case 'eth_blockNumber':
@@ -403,7 +403,7 @@ export function wrapProvider(
 					(args as unknown as EIP1193TransactionRequestWithMetadata).params[1],
 				);
 
-				let txWithMetadata = { ...tx, metadata, timestamp: await syncTime() };
+				let txWithMetadata = { ...tx, metadata, timestamp: await syncBlock() };
 
 				if (currentObservers?.onTxRequested) {
 					currentObservers?.onTxRequested(txWithMetadata);
@@ -500,7 +500,7 @@ export function wrapProvider(
 			setObservers,
 			unsetObservers,
 			currentTime,
-			syncTime,
+			syncBlock,
 			waitNewBlock,
 			setUnderlyingProvider,
 		},
@@ -516,7 +516,7 @@ export function wrapProvider(
 					case '__web3_connection__':
 					case 'setObservers':
 					case 'currentTime':
-					case 'syncTime':
+					case 'syncBlock':
 					case 'waitNewBlock':
 					case 'unsetObservers':
 					case 'setUnderlyingProvider':

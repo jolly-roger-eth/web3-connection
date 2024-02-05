@@ -48,7 +48,7 @@ export type Web3ConnectionProvider = ObservableProvider & {
 	setNextMetadata(metadata: any): void;
 	__web3_connection_: true;
 	currentTime(): number;
-	syncTime(latestBlockTime?: number | EIP1193Block): Promise<number>;
+	syncBlock(latestBlock?: EIP1193Block): Promise<number>;
 	waitNewBlock(): Promise<EIP1193Block>;
 	underlyingProvider: EIP1193ProviderWithBlocknumberSubscription;
 	setUnderlyingProvider(ethereum: EIP1193ProviderWithBlocknumberSubscription): void;
