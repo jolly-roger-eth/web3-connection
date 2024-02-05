@@ -143,9 +143,9 @@ export function wrapProvider(
 		return currentTime();
 	}
 
-	function syncTime(latestBlockTime?: number | EIP1193Block) {
+	function syncTime(latestBlock?: EIP1193Block) {
 		return new Promise<number>((resolve, reject) => {
-			if (!latestBlockTime) {
+			if (!latestBlock) {
 				const delay = 2;
 				let timeout: Timeout | undefined = setTimeout(() => {
 					logger.error(`sync request timed out after ${delay} second`);
@@ -164,10 +164,9 @@ export function wrapProvider(
 							timeout = undefined;
 
 							const blockTime = Number(latestBlock.timestamp);
-							latestBlockTime = blockTime;
-							emitNewBlockIfNotAlreadyEmitted && emitNewBlockIfNotAlreadyEmitted(latestBlockTime);
-
-							resolve(now(latestBlockTime));
+							emitNewBlockIfNotAlreadyEmitted &&
+								emitNewBlockIfNotAlreadyEmitted(Number(latestBlock.number));
+							resolve(now(blockTime));
 						}
 					})
 					.catch((err) => {
@@ -178,12 +177,10 @@ export function wrapProvider(
 						}
 					});
 			} else {
-				if (typeof latestBlockTime !== 'number') {
-					const blockTime = Number(latestBlockTime.timestamp);
-					latestBlockTime = blockTime;
-				}
-
-				resolve(now(latestBlockTime));
+				const blockTime = Number(latestBlock.timestamp);
+				emitNewBlockIfNotAlreadyEmitted &&
+					emitNewBlockIfNotAlreadyEmitted(Number(latestBlock.number));
+				resolve(now(blockTime));
 			}
 		});
 	}
