@@ -29,7 +29,7 @@ export type BuiltinState = {
 	available?: boolean;
 	vendor?: string;
 	walletsAnnounced: EIP6963ProviderDetail[];
-	ethereumAnnounced: boolean;
+	ethereumAnnounced?: EIP6963ProviderDetail;
 };
 
 // const perWindow: WeakMap<Window, any> = new WeakMap();
@@ -45,7 +45,7 @@ export function createBuiltinStore(window?: Window) {
 		state: 'Idle',
 		probing: false,
 		walletsAnnounced,
-		ethereumAnnounced: false,
+		ethereumAnnounced: undefined,
 	});
 
 	if (window) {
@@ -87,7 +87,7 @@ export function createBuiltinStore(window?: Window) {
 			try {
 				const ethereum = await fetchEthereum(window);
 				if (ethereum) {
-					const announced = !!walletsAnnounced.find((v) => v.provider === ethereum);
+					const announced = walletsAnnounced.find((v) => v.provider === ethereum);
 					// used to be necessary for Metamask
 					(ethereum as any).autoRefreshOnNetworkChange = false;
 

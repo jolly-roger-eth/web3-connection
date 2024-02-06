@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.27
+
+### Patch Changes
+
+- more names + builtin ethereumAnnounced info
+
 ## 0.1.26
 
 ### Patch Changes

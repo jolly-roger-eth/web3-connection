@@ -31,12 +31,16 @@ export function fetchEthereum(window: Window): Promise<EIP1193Provider | undefin
 export function getVendor(ethereum: any): string | undefined {
 	if (!ethereum) {
 		return undefined;
+	} else if (ethereum.isRainbow) {
+		return 'Rainbow';
+	} else if (ethereum.isRabby) {
+		return 'Rabby';
+	} else if (ethereum.isFrame) {
+		return 'Frame';
 	} else if (ethereum.isBraveWallet) {
 		return 'Brave'; // need to be checked before Metamask as Brave also have `isMetamask`
 	} else if (ethereum.isMetaMask) {
 		return 'Metamask';
-	} else if (ethereum.isFrame) {
-		return 'Frame';
 	} else if (
 		(navigator as any).userAgent.indexOf('Opera') != -1 ||
 		(navigator as any).userAgent.indexOf('OPR/') != -1
