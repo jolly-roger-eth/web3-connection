@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.31
+
+### Patch Changes
+
+- better unlock flow
+
 ## 0.1.30
 
 ### Patch Changes
