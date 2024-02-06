@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.26
+
+### Patch Changes
+
+- multipl ebuiltin
+
 ## 0.1.25
 
 ### Patch Changes
