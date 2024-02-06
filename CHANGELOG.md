@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.28
+
+### Patch Changes
+
+- ethereumAnnounced choice
+
 ## 0.1.27
 
 ### Patch Changes

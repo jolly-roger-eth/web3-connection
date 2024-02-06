@@ -1342,7 +1342,10 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 
 			if (type === 'builtin') {
 				await builtin.probe();
-				if (builtin.$state.walletsAnnounced.length > 0) {
+				if (
+					(!builtin.$state.ethereumAnnounced && builtin.$state.walletsAnnounced.length > 0) ||
+					(builtin.$state.ethereumAnnounced && builtin.$state.walletsAnnounced.length > 1)
+				) {
 					type = undefined;
 				}
 			}
