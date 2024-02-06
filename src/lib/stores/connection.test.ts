@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { init, type ConnectionState } from './connection';
+import { init } from './connection';
 import { LOCAL_STORAGE_PREVIOUS_WALLET_SLOT } from './localStorage';
 import { waitFor } from '../../utils';
 import { fakeRPCProvider, initUser } from '../../utils/test-provider';
