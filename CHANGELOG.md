@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.30
+
+### Patch Changes
+
+- cancelUnlock
+
 ## 0.1.29
 
 ### Patch Changes

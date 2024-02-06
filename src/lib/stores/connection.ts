@@ -1469,6 +1469,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		setAccount({
 			unlocking: false,
 		});
+		recordSelection('');
 		_connect.resolve(['connection+account', 'connection+network+account'], false);
 	}
 

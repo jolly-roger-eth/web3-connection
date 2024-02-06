@@ -1,6 +1,6 @@
 {
 	"name": "web3-connection",
-	"version": "0.1.29",
+	"version": "0.1.30",
 	"publishConfig": {
 		"access": "public"
 	},
