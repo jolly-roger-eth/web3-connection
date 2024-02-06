@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.29
+
+### Patch Changes
+
+- record-selection only on full success
+
 ## 0.1.28
 
 ### Patch Changes

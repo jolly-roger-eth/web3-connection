@@ -29,7 +29,7 @@ export type MultiNetworkConfigs<ContractsInfos extends GenericContractsInfos> = 
 export type NetworkConfigs<ContractsInfos extends GenericContractsInfos> =
 	| SingleNetworkConfig<ContractsInfos>
 	| ((
-			chainId: string
+			chainId: string,
 	  ) => Promise<SingleNetworkConfig<ContractsInfos> | MultiNetworkConfigs<ContractsInfos>>);
 
 export type Web3ConnectionError = {
@@ -47,6 +47,7 @@ type BaseConnectionState = {
 
 export type ConnectedState = BaseConnectionState & {
 	state: 'Connected';
+	requirements: ConnectionRequirements;
 	initialised: true;
 	connecting: false;
 	requireSelection: false;
@@ -57,6 +58,7 @@ export type ConnectedState = BaseConnectionState & {
 
 export type DisconnectedState = BaseConnectionState & {
 	state: 'Disconnected';
+	requirements?: ConnectionRequirements;
 	initialised: boolean; // COuld be an Idle state instead ?
 	connecting: boolean;
 	requireSelection: boolean;
@@ -145,7 +147,7 @@ export type ConnectAndExecuteCallback<T> = (state: OnConnectionExecuteState) => 
 
 export type OnExecuteState<
 	ContractsInfos extends GenericContractsInfos,
-	TAddress extends Address
+	TAddress extends Address,
 > = {
 	connection: ConnectedState;
 	account: ConnectedAccountState<TAddress>;
@@ -154,7 +156,7 @@ export type OnExecuteState<
 export type ExecuteCallback<
 	ContractsInfos extends GenericContractsInfos,
 	TAddress extends Address,
-	T
+	T,
 > = (state: OnExecuteState<ContractsInfos, TAddress>) => Promise<T>;
 
 export type ExecutionState = {
@@ -174,7 +176,7 @@ export type FlexibleParameters = Parameters | ParametersPerNetwork;
 
 export type ConnectionConfig<
 	NetworkConfig extends NetworkConfigs<ContractsInfos>,
-	ContractsInfos extends GenericContractsInfos
+	ContractsInfos extends GenericContractsInfos,
 > = {
 	options?: (string | Web3WModule | Web3WModuleLoader)[];
 	parameters?: FlexibleParameters;
@@ -190,7 +192,7 @@ export type ConnectionConfig<
 				network: DisconectedBecauseNotSupportedNetworkState | ConnectedNetworkState<ContractsInfos>;
 			},
 			setLoadingMessage: (msg: string) => void,
-			waitForStep: (id?: string, data?: any) => Promise<unknown>
+			waitForStep: (id?: string, data?: any) => Promise<unknown>,
 		) => Promise<void>;
 		unload: () => Promise<void>;
 	};

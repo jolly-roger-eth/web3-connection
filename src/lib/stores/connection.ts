@@ -453,8 +453,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			}
 			if (!$network.notSupported) {
 				if ($account.state === 'Connected') {
+					if ($state.walletType && $state.requirements === 'connection+network+account') {
+						recordSelection($state.walletType.type);
+					}
 					_connect.resolve('connection+network+account', true);
 				} else {
+					if ($state.walletType && $state.requirements === 'connection+account') {
+						recordSelection($state.walletType.type);
+					}
 					_connect.resolve('connection+network', true);
 				}
 			}
@@ -917,8 +923,6 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				});
 			}
 
-			recordSelection(type);
-
 			// TODO better naming/flow ?
 			try {
 				logger.info(`getting chainId...`);
@@ -975,6 +979,9 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				// error: undefined, // DO we need that ?
 			});
 			listenForChanges();
+			if ($state.walletType && $state.requirements === 'connection') {
+				recordSelection($state.walletType.type);
+			}
 			_connect.resolve('connection', true);
 
 			try {
@@ -1121,8 +1128,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 										state: 'Connected',
 									});
 									if ($network.state === 'Connected') {
+										if ($state.walletType && $state.requirements === 'connection+network+account') {
+											recordSelection($state.walletType.type);
+										}
 										_connect.resolve('connection+network+account', true);
 									} else {
+										if ($state.walletType && $state.requirements === 'connection+account') {
+											recordSelection($state.walletType.type);
+										}
 										_connect.resolve('connection+account', true);
 									}
 								} else {
@@ -1158,8 +1171,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 								});
 								if (!$account.isLoadingData) {
 									if ($network.state === 'Connected') {
+										if ($state.walletType && $state.requirements === 'connection+network+account') {
+											recordSelection($state.walletType.type);
+										}
 										_connect.resolve('connection+network+account', true);
 									} else {
+										if ($state.walletType && $state.requirements === 'connection+account') {
+											recordSelection($state.walletType.type);
+										}
 										_connect.resolve('connection+account', true);
 									}
 								}
@@ -1192,8 +1211,14 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			} else {
 				setAccount({ state: 'Connected', locked: false, address, unlocking: false });
 				if ($network.state === 'Connected') {
+					if ($state.walletType && $state.requirements === 'connection+network+account') {
+						recordSelection($state.walletType.type);
+					}
 					_connect.resolve('connection+network+account', true);
 				} else {
+					if ($state.walletType && $state.requirements === 'connection+account') {
+						recordSelection($state.walletType.type);
+					}
 					_connect.resolve('connection+account', true);
 				}
 			}
@@ -1318,6 +1343,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		async function fromDisconnected(type?: string) {
 			set({
 				connecting: true,
+				requirements,
 			});
 			if (!type) {
 				await builtin.probe();
@@ -1366,11 +1392,15 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 							}
 						}
 					} else {
+						if (requirements === 'connection' || requirements === 'connection+network') {
+							recordSelection($state.walletType.type);
+						}
 						_connect.resolve(['connection', 'connection+network'], true);
 					}
 				} else {
 					// TODO? connection+account ?
 					if (requirements === 'connection') {
+						recordSelection($state.walletType.type);
 						return _connect.resolve('connection', true);
 					}
 					if ($network.chainId) {
