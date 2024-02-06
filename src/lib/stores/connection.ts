@@ -773,10 +773,15 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 
 				currentModule = undefined;
 			} else if (typeof typeOrModule === 'string' && typeOrModule.startsWith('builtin:')) {
+				if (builtin.$state.state !== 'Ready') {
+					await builtin.probe();
+				}
+				await wait(1);
 				const splitted = typeof typeOrModule === 'string' && typeOrModule.split(':');
-				const uuid = splitted && splitted[1];
-				const wallet = builtin.$state.walletsAnnounced.find((v) => v.info?.uuid === uuid);
+				const name = splitted && splitted[1];
+				const wallet = builtin.$state.walletsAnnounced.find((v) => v.info?.name === name);
 				if (!wallet) {
+					logger.error(`could not find wallet ${typeOrModule}`);
 					return set({
 						state: 'Disconnected',
 						connecting: false,
@@ -1328,14 +1333,20 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 
 		async function attempt() {
-			let type: string | undefined;
-			if (!type) {
-				if (optionsAsStringArray.length === 0) {
-					type = 'builtin';
-				} else if (optionsAsStringArray.length === 1) {
-					type = optionsAsStringArray[0];
+			let type: string | undefined = undefined;
+			if (optionsAsStringArray.length === 0) {
+				type = 'builtin';
+			} else if (optionsAsStringArray.length === 1) {
+				type = optionsAsStringArray[0];
+			}
+
+			if (type === 'builtin') {
+				await builtin.probe();
+				if (builtin.$state.walletsAnnounced.length > 0) {
+					type = undefined;
 				}
 			}
+
 			if ($state.state === 'Connected') {
 				if ($network.state === 'Connected') {
 					if (requirements === 'connection+network+account') {

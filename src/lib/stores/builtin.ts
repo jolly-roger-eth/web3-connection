@@ -1,6 +1,9 @@
 import type { EIP1193Provider } from 'eip-1193';
 import { createStore } from '$lib/utils/stores';
 import { fetchEthereum, getVendor } from '$lib/utils/windowEthereum';
+import { logs } from 'named-logs';
+
+const logger = logs('web3-connection:builtin');
 
 type EIP6963ProviderInfo = {
 	uuid: string;
@@ -10,7 +13,7 @@ type EIP6963ProviderInfo = {
 };
 
 type EIP6963ProviderDetail = {
-	info?: EIP6963ProviderInfo;
+	info: EIP6963ProviderInfo;
 	provider: EIP1193Provider;
 };
 
@@ -51,7 +54,7 @@ export function createBuiltinStore(window?: Window) {
 			'eip6963:announceProvider',
 			(event: EIP6963AnnounceProviderEvent) => {
 				const existing = walletsAnnounced.find(
-					(v) => v.info?.uuid === event.detail.info?.uuid || v.provider === event.detail.provider
+					(v) => v.info?.uuid === event.detail.info?.uuid || v.provider === event.detail.provider,
 				);
 				if (existing && !existing.info) {
 					existing.info = event.detail.info;
@@ -60,7 +63,7 @@ export function createBuiltinStore(window?: Window) {
 					walletsAnnounced.push(event.detail);
 					set({ walletsAnnounced });
 				}
-			}
+			},
 		);
 		window.dispatchEvent(new Event('eip6963:requestProvider'));
 	}
@@ -75,6 +78,7 @@ export function createBuiltinStore(window?: Window) {
 				return resolve(provider);
 			}
 			if (!window) {
+				logger.error(`no window provided`);
 				set({ probing: false, state: 'Ready', available: false, vendor: undefined });
 				return resolve(undefined);
 			}
@@ -96,10 +100,12 @@ export function createBuiltinStore(window?: Window) {
 						ethereumAnnounced: announced,
 					});
 				} else {
+					logger.debug(`cannot get window.ethereum`);
 					set({ probing: false, state: 'Ready', available: false, vendor: undefined });
 				}
 				resolve(ethereum);
 			} catch (err) {
+				logger.error(`failed to probe`, err);
 				set({ probing: false, error: (err as any).message || err });
 				return reject(err);
 			}
