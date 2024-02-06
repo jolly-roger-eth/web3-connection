@@ -1298,6 +1298,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	}
 
 	async function disconnect(resolve = true): Promise<void> {
+		recordSelection('');
 		stopListeningForChanges();
 		setAccount({ state: 'Disconnected', locked: false, unlocking: false, address: undefined });
 		if (config.acccountData) {
@@ -1324,7 +1325,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			walletType: undefined,
 			provider: undefined,
 		});
-		recordSelection('');
+
 		if (resolve) {
 			_connect.resolve('*', false);
 		}
@@ -1380,7 +1381,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				if ($network.state === 'Connected') {
 					if (requirements === 'connection+network+account') {
 						if ($account.state !== 'Connected') {
-							if ($state.walletType.type === 'ReadOnly') {
+							if ($state.walletType.type === 'ReadOnly' || !fetchPreviousSelection()) {
 								await disconnect(false);
 								await fromDisconnected(type);
 							} else {
@@ -1392,10 +1393,6 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 							}
 						}
 					} else {
-						if (requirements === 'connection' || requirements === 'connection+network') {
-							recordSelection($state.walletType.type);
-						}
-						_connect.resolve(['connection', 'connection+network'], true);
 					}
 				} else {
 					// TODO? connection+account ?
@@ -1469,7 +1466,6 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		setAccount({
 			unlocking: false,
 		});
-		recordSelection('');
 		_connect.resolve(['connection+account', 'connection+network+account'], false);
 	}
 
