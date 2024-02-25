@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.33
+
+### Patch Changes
+
+- fix module setup
+
 ## 0.1.32
 
 ### Patch Changes

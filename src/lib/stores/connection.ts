@@ -863,7 +863,6 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					});
 
 					currentModule = module;
-					await handleNetwork(moduleSetup.chainId);
 					set({
 						requireSelection: false,
 						walletType: { type, name: walletName(type) },
@@ -871,6 +870,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 							(moduleSetup as any).eip1193Provider || (moduleSetup as any).web3Provider,
 						),
 					});
+					await handleNetwork(moduleSetup.chainId);
 					logger.info(`module setup`);
 				} catch (err) {
 					currentModule = undefined;
