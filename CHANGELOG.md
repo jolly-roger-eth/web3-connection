@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.34
+
+### Patch Changes
+
+- fix module handleNetwork
+
 ## 0.1.33
 
 ### Patch Changes

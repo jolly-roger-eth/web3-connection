@@ -923,49 +923,51 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				});
 			}
 
-			// TODO better naming/flow ?
-			try {
-				logger.info(`getting chainId...`);
+			if ($network.state !== 'Connected') {
+				// TODO better naming/flow ?
 				try {
-					await fetchAndSetChainId();
-				} catch {
-					// we fallback on fetching account
-					logger.info(`falling back on requesting access...`);
-					await timeoutRequest(
-						$state.provider,
-						{ method: 'eth_requestAccounts' },
-						defaultParams.timeout,
-					);
-					logger.info(`fetching chainId again...`);
-					await fetchAndSetChainId();
+					logger.info(`getting chainId...`);
+					try {
+						await fetchAndSetChainId();
+					} catch {
+						// we fallback on fetching account
+						logger.info(`falling back on requesting access...`);
+						await timeoutRequest(
+							$state.provider,
+							{ method: 'eth_requestAccounts' },
+							defaultParams.timeout,
+						);
+						logger.info(`fetching chainId again...`);
+						await fetchAndSetChainId();
+					}
+				} catch (err) {
+					logger.log(`could not fetch chainId, even after asking to request accounts`);
+
+					const error = {
+						message: `Could not connect to your wallet. Verify your node or remote RPC is not down.`,
+						cause: err,
+					};
+					// cannot fetch chainId, this means we are not connected
+
+					// TODO? this need to be everywhere where we throw : _connect.reject('*', err);  no ?
+					_connect.reject('*', error);
+
+					return set({
+						state: 'Disconnected',
+						connecting: false,
+						requireSelection: false,
+						loadingModule: false,
+						walletType: $state.walletType,
+						provider: $state.provider,
+						error,
+					});
 				}
-			} catch (err) {
-				logger.log(`could not fetch chainId, even after asking to request accounts`);
 
-				const error = {
-					message: `Could not connect to your wallet. Verify your node or remote RPC is not down.`,
-					cause: err,
-				};
-				// cannot fetch chainId, this means we are not connected
-
-				// TODO? this need to be everywhere where we throw : _connect.reject('*', err);  no ?
-				_connect.reject('*', error);
-
-				return set({
-					state: 'Disconnected',
-					connecting: false,
-					requireSelection: false,
-					loadingModule: false,
-					walletType: $state.walletType,
-					provider: $state.provider,
-					error,
-				});
-			}
-
-			// this allow typoescript to stay silent about $network.chainId being possibly undefined
-			if (!$network.chainId) {
-				_connect.reject('*', 'chainId not set');
-				throw new Error(`chainId not set, should be impossible`);
+				// this allow typoescript to stay silent about $network.chainId being possibly undefined
+				if (!$network.chainId) {
+					_connect.reject('*', 'chainId not set');
+					throw new Error(`chainId not set, should be impossible`);
+				}
 			}
 
 			// everything passed
