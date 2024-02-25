@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.32
+
+### Patch Changes
+
+- fix moduleSetup chainId
+
 ## 0.1.31
 
 ### Patch Changes

@@ -863,7 +863,7 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					});
 
 					currentModule = module;
-					await handleNetwork(moduleConfig.chainId);
+					await handleNetwork(moduleSetup.chainId);
 					set({
 						requireSelection: false,
 						walletType: { type, name: walletName(type) },
