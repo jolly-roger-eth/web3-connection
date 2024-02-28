@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.38
+
+### Patch Changes
+
+- add chainInfo
+
 ## 0.1.37
 
 ### Patch Changes

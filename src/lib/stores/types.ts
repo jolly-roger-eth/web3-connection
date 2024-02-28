@@ -15,8 +15,100 @@ export type GenericContractsInfos = {
 	readonly [name: string]: { readonly address: `0x${string}`; readonly abi: Abi };
 };
 
+type ChainBlockExplorer = {
+	name: string;
+	url: string;
+	apiUrl?: string | undefined;
+};
+type ChainContract = {
+	address: Address;
+	blockCreated?: number | undefined;
+};
+
+type ChainNativeCurrency = {
+	name: string;
+	/** 2-6 characters long */
+	symbol: string;
+	decimals: number;
+};
+
+type ChainRpcUrls = {
+	http: readonly string[];
+	webSocket?: readonly string[] | undefined;
+};
+
+/**
+ * @description Combines members of an intersection into a readable type.
+ *
+ * @see {@link https://twitter.com/mattpocockuk/status/1622730173446557697?s=20&t=NdpAcmEFXY01xkqU3KO0Mg}
+ * @example
+ * Prettify<{ a: string } & { b: string } & { c: number, d: bigint }>
+ * => { a: string, b: string, c: number, d: bigint }
+ */
+type Prettify<T> = {
+	[K in keyof T]: T[K];
+} & {};
+
+export type ChainInfo = {
+	/** ID in number form */
+	id: number;
+	/** Human-readable name */
+	name: string;
+	/** Collection of block explorers */
+	blockExplorers?:
+		| {
+				[key: string]: ChainBlockExplorer;
+				default: ChainBlockExplorer;
+		  }
+		| undefined;
+	/** Collection of contracts */
+	contracts?:
+		| Prettify<
+				{
+					[key: string]:
+						| ChainContract
+						| { [sourceId: number]: ChainContract | undefined }
+						| undefined;
+				} & {
+					ensRegistry?: ChainContract | undefined;
+					ensUniversalResolver?: ChainContract | undefined;
+					multicall3?: ChainContract | undefined;
+				}
+		  >
+		| undefined;
+	/** Currency used by chain */
+	nativeCurrency: ChainNativeCurrency;
+	/** Collection of RPC endpoints */
+	rpcUrls: {
+		[key: string]: ChainRpcUrls;
+		default: ChainRpcUrls;
+	};
+	/** Source Chain ID (ie. the L1 chain) */
+	sourceId?: string | undefined;
+	/** Flag for test networks */
+	testnet?: boolean | undefined;
+
+	chainType: 'zksync' | 'op-stack' | 'celo' | 'default';
+
+	// this will bring in the following when reconstructed from the data above
+
+	// /** Custom chain data. */
+	// custom?: any;
+
+	// /**
+	//  * Modifies how chain data structures (ie. Blocks, Transactions, etc)
+	//  * are formatted & typed.
+	//  */
+	// formatters?: any | undefined;
+	// /** Modifies how data (ie. Transactions) is serialized. */
+	// serializers?: any | undefined;
+	// /** Modifies how fees are derived. */
+	// fees?: any | undefined;
+};
+
 export type SingleNetworkConfig<ContractsInfos extends GenericContractsInfos> = {
 	chainId: string;
+	chainInfo: ChainInfo;
 	name?: string;
 	contracts: ContractsInfos;
 };
@@ -112,7 +204,8 @@ export type ConnectedNetworkState<ContractsInfo extends GenericContractsInfos> =
 		chainId: string;
 		loading: false;
 		notSupported: false;
-		contracts: GenericContractsInfos;
+		contracts: ContractsInfo;
+		chainInfo: ChainInfo;
 	};
 
 type BaseAccountState = {

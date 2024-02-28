@@ -8,7 +8,7 @@ import { multiObersvers, wrapProvider, type WrappProviderConfig } from '$lib/pro
 import type { EIP1193Observers, Web3ConnectionProvider } from '$lib/provider/types';
 import { createPendingActionsStore } from './pending-actions';
 import { createManageablePromise, createManageablePromiseWithId } from '$lib/utils/promises';
-import { getContractInfos } from '$lib/utils/contracts';
+import { getSingleNetworkConfig } from '$lib/utils/contracts';
 import { fetchPreviousSelection, recordSelection } from './localStorage';
 import type {
 	EIP1193Block,
@@ -33,6 +33,7 @@ import {
 import type { Address } from 'abitype';
 import type {
 	AccountState,
+	ChainInfo,
 	ConnectAndExecuteCallback,
 	ConnectedAccountState,
 	ConnectedNetworkState,
@@ -418,7 +419,8 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 					state: 'Connected',
 					chainId,
 					notSupported: false,
-					contracts: {},
+					contracts: {} as ContractsInfos,
+					chainInfo: {} as ChainInfo,
 				});
 			} else {
 				let networkConfigs = config.networks;
@@ -432,14 +434,15 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 				}
 
 				// TODO cache
-				const contractsInfos = getContractInfos(networkConfigs, chainId);
-				if (contractsInfos) {
+				const singleNetworkConfig = getSingleNetworkConfig(networkConfigs, chainId);
+				if (singleNetworkConfig) {
 					setNetwork({
 						state: 'Connected',
 						chainId,
 						loading: false,
 						notSupported: false,
-						contracts: contractsInfos,
+						contracts: singleNetworkConfig.contracts as ContractsInfos,
+						chainInfo: singleNetworkConfig.chainInfo,
 					});
 				} else {
 					setNetwork({
