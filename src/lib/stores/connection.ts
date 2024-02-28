@@ -986,11 +986,24 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 			}
 			_connect.resolve('connection', true);
 
-			try {
-				await handleNetwork($network.chainId);
-				await fetchAccount($state.provider, autoUnlock);
-			} catch (err) {
-				console.error(err);
+			if ($network.chainId) {
+				try {
+					await handleNetwork($network.chainId);
+					await fetchAccount($state.provider, autoUnlock);
+				} catch (err) {
+					console.error(err);
+				}
+			} else {
+				set({
+					state: 'Disconnected',
+					connecting: false,
+					requireSelection: false,
+					loadingModule: false,
+					walletType: $state.walletType,
+					provider: $state.provider,
+					error: { message: `no chainId set` },
+				});
+				return;
 			}
 		} catch (err) {
 			logger.info(`select error`, err);
@@ -1781,14 +1794,15 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	async function start() {
 		if (config.defaultRPC) {
 			logger.info(`using defaultRPC provider ${config.defaultRPC}`);
-			const rpcProvider = createRPCProvider(config.defaultRPC);
+			const httpProvider = createRPCProvider(config.defaultRPC);
 			set({
 				state: 'Connected',
 				connecting: false,
 				requireSelection: false,
 				walletType: { type: 'ReadOnly', name: config.defaultRPC.url },
-				provider: createProvider(rpcProvider),
+				provider: createProvider(httpProvider),
 				initialised: true,
+				httpProvider,
 			});
 			await handleNetwork(config.defaultRPC.chainId);
 		} else {

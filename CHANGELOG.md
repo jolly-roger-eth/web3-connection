@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.35
+
+### Patch Changes
+
+- fix + httpProvider
+
 ## 0.1.34
 
 ### Patch Changes

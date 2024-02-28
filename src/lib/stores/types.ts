@@ -3,6 +3,7 @@ import type { WrappProviderConfig } from '$lib/provider/wrap';
 import type { Web3WModule, Web3WModuleLoader } from '$lib/types/modules';
 import type { NonceCachedStatus } from '$lib/utils/chain';
 import type { Abi, Address } from 'abitype';
+import type { EIP1193GenericRequestProvider } from 'eip-1193';
 
 export type ConnectionRequirements =
 	| 'connection' // only connected to perform raw read-only calls, any network
@@ -54,6 +55,7 @@ export type ConnectedState = BaseConnectionState & {
 	loadingModule: false;
 	walletType: { type: string; name?: string };
 	provider: Web3ConnectionProvider;
+	httpProvider?: EIP1193GenericRequestProvider;
 };
 
 export type DisconnectedState = BaseConnectionState & {
@@ -65,6 +67,7 @@ export type DisconnectedState = BaseConnectionState & {
 	loadingModule: boolean;
 	walletType?: { type: string; name?: string };
 	provider?: Web3ConnectionProvider;
+	httpProvider?: EIP1193GenericRequestProvider;
 };
 
 export type ConnectionState = ConnectedState | DisconnectedState;
