@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.36
+
+### Patch Changes
+
+- httpProvider != fallback provider
+
 ## 0.1.35
 
 ### Patch Changes

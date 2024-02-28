@@ -1791,18 +1791,22 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 		}
 	}
 
+	if (config.defaultRPC) {
+		logger.info(`Setting rpc provider ${config.defaultRPC}`);
+		const httpProvider = createRPCProvider(config.defaultRPC);
+		set({ httpProvider });
+	}
+
 	async function start() {
-		if (config.defaultRPC) {
+		if (config.defaultRPC && $state.httpProvider) {
 			logger.info(`using defaultRPC provider ${config.defaultRPC}`);
-			const httpProvider = createRPCProvider(config.defaultRPC);
 			set({
 				state: 'Connected',
 				connecting: false,
 				requireSelection: false,
 				walletType: { type: 'ReadOnly', name: config.defaultRPC.url },
-				provider: createProvider(httpProvider),
+				provider: createProvider($state.httpProvider as EIP1193Provider),
 				initialised: true,
-				httpProvider,
 			});
 			await handleNetwork(config.defaultRPC.chainId);
 		} else {
