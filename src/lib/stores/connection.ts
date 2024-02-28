@@ -1647,11 +1647,11 @@ export function init<ContractsInfos extends GenericContractsInfos>(
 	async function switchTo(
 		chainId: string,
 		config?: {
-			rpcUrls?: string[];
-			blockExplorerUrls?: string[];
-			chainName?: string;
-			iconUrls?: string[];
-			nativeCurrency?: {
+			readonly rpcUrls?: readonly string[];
+			readonly blockExplorerUrls?: readonly string[];
+			readonly chainName?: string;
+			readonly iconUrls?: readonly string[];
+			readonly nativeCurrency?: {
 				name: string;
 				symbol: string;
 				decimals: number;

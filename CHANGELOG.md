@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.37
+
+### Patch Changes
+
+- fix types for switchTo (readonly)
+
 ## 0.1.36
 
 ### Patch Changes
