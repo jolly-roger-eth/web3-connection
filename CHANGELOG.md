@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.39
+
+### Patch Changes
+
+- chainInfo sourceId as viem: a number
+
 ## 0.1.38
 
 ### Patch Changes

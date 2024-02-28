@@ -84,7 +84,7 @@ export type ChainInfo = {
 		default: ChainRpcUrls;
 	};
 	/** Source Chain ID (ie. the L1 chain) */
-	sourceId?: string | undefined;
+	sourceId?: number | undefined;
 	/** Flag for test networks */
 	testnet?: boolean | undefined;
 
