@@ -1,5 +1,11 @@
 # web3-connection
 
+## 0.1.40
+
+### Patch Changes
+
+- latets deps
+
 ## 0.1.39
 
 ### Patch Changes
